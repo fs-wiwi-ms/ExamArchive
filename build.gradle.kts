@@ -22,11 +22,7 @@ dependencies {
 }
 
 jte {
-    // file(...).toPath() is the idiomatic Gradle way to handle paths
     sourceDirectory = file("src/main/jte").toPath()
-
-    // generate() lets Gradle's compileJava handle the classes,
-    // which means shadowJar automatically includes them without manual config!
     generate()
     contentType = ContentType.Html
 }

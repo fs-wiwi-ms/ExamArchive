@@ -22,4 +22,4 @@ COPY --from=builder /app/build/libs/*-all.jar app.jar
 
 EXPOSE 1910
 
-ENTRYPOINT ["java", "-jar", "/app.jar"]
+ENTRYPOINT ["java", "-jar", "app.jar"]
