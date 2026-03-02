@@ -19,7 +19,7 @@ public record Exam(String name,
                    String moduleID,
                    Semester semester,
                    Instant uploadDate,
-                   Instant fileID,
+                   String fileID,
                    String uploaderID,
                    ExamStatus status,
                    String professorID) {}

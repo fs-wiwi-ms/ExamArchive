@@ -1,7 +1,37 @@
 services:
+  db:
+    image: postgres:18.3
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: exam_user
+      POSTGRES_PASSWORD: exam_password
+      POSTGRES_DB: exam_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U exam_user -d exam_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
   app:
     build:
       context: .
       dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "1910:1910"
+    environment:
+      EXAMARCHIVE_DB_HOSTNAME: "db"
+      EXAMARCHIVE_DB_PORT: "5432"
+      EXAMARCHIVE_DB_USERNAME: "exam_user"
+      EXAMARCHIVE_DB_PASSWORD: "exam_password"
+      EXAMARCHIVE_DB_DATABASE: "exam_db"
+
+volumes:
+  postgres_data:
