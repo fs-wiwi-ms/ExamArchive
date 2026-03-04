@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Locale;
 
 public class ExamArchive {
 
@@ -32,7 +33,16 @@ public class ExamArchive {
         logger.info("Starting webserver");
         Javalin javalin = Javalin.create(config -> {
             config.fileRenderer(new JavalinJte(TemplateEngine.createPrecompiled(ContentType.Html)));
-            config.routes.get("/", ctx -> ctx.render("helloWorld.jte"));
+            config.routes.get("/", ctx -> ctx.render("index.jte"));
+            config.routes.before(ctx -> {
+                String acceptLanguage = ctx.header("Accept-Language");
+                Locale locale = Locale.GERMAN;
+                if (acceptLanguage != null && acceptLanguage.toLowerCase().startsWith("en")) {
+                    locale = Locale.ENGLISH;
+                }
+                JteLocalizer.setLocale(locale);
+            });
+            config.routes.after(_ -> JteLocalizer.clear());
         });
         javalin.start(1910);
     }
