@@ -43,6 +43,7 @@ public class ExamArchive {
                 JteLocalizer.setLocale(locale);
             });
             config.routes.after(_ -> JteLocalizer.clear());
+            config.staticFiles.add("/public");
         });
         javalin.start(1910);
     }
