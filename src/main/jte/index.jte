@@ -38,9 +38,7 @@
             </main>
             <button>${JteLocalizer.get("index.login.button")}</button>
             <footer style="text-align: center;">
-                <small>
-                    <a href="/admin" class="secondary">Admin Portal</a>
-                </small>
+                <small style="color: #525f7a">${JteLocalizer.get("index.login.hint")}<a style="color: #525f7a; text-decoration: none" href="mailto:klausurarchiv@fachschaft-wiwi.ms"> Klausurarchiv@fachschaft-wiwi.ms</a></small>
             </footer>
         </article>
     </div>
