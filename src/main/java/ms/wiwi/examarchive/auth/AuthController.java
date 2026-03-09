@@ -55,6 +55,9 @@ public class AuthController {
         String storedNonceVal = ctx.sessionAttribute("oauth_nonce");
         String storedState = ctx.sessionAttribute("oauth_state");
         String verifierStr = ctx.sessionAttribute("pkce_verifier");
+        ctx.sessionAttribute("oauth_state", null);
+        ctx.sessionAttribute("pkce_verifier", null);
+        ctx.sessionAttribute("oauth_nonce", null);
 
         if (verifierStr == null) {
             ctx.status(400).result("Missing PKCE Verifier in session");
@@ -88,11 +91,12 @@ public class AuthController {
             User user = new User(eppn, firstname, lastname, Instant.now(), Instant.now(), email, role);
             logger.info("User {} logged in", user);
             repository.addOrUpdateUser(user);
-            ctx.req().getSession().invalidate();
+            ctx.req().changeSessionId();
             ctx.sessionAttribute("userId", user.id());
             ctx.redirect("/exams/search");
 
         } catch (Exception e) {
+            logger.error("Authentication failed during OIDC callback", e);
             ctx.status(500).result("Authentication failed");
         }
     }

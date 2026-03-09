@@ -6,6 +6,7 @@ import io.javalin.Javalin;
 import io.javalin.rendering.template.JavalinJte;
 import ms.wiwi.examarchive.auth.AuthController;
 import ms.wiwi.examarchive.auth.OIDCService;
+import org.eclipse.jetty.http.HttpCookie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,6 +83,7 @@ public class ExamArchive {
                 config.jetty.modifyServletContextHandler(handler -> {
                     handler.getSessionHandler().getSessionCookieConfig().setHttpOnly(true);
                     handler.getSessionHandler().getSessionCookieConfig().setSecure(true);
+                    handler.getSessionHandler().setSameSite(HttpCookie.SameSite.LAX);
                 });
             }
         });
