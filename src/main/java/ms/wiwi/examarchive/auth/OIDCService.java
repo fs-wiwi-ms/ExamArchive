@@ -1,5 +1,6 @@
 package ms.wiwi.examarchive.auth;
 
+import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.oauth2.sdk.*;
 import com.nimbusds.oauth2.sdk.auth.ClientAuthentication;
@@ -11,9 +12,12 @@ import com.nimbusds.oauth2.sdk.id.State;
 import com.nimbusds.oauth2.sdk.pkce.CodeChallengeMethod;
 import com.nimbusds.oauth2.sdk.pkce.CodeVerifier;
 import com.nimbusds.openid.connect.sdk.*;
+import com.nimbusds.openid.connect.sdk.claims.IDTokenClaimsSet;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
+import com.nimbusds.openid.connect.sdk.validators.IDTokenValidator;
 
 import java.net.URI;
+import java.net.URL;
 
 /**
  * Service for handling OIDC flows with Keycloak using the Nimbus SDK, including PKCE.
@@ -21,6 +25,7 @@ import java.net.URI;
 public class OIDCService {
 
     private final OIDCProviderMetadata providerMetadata;
+    private final IDTokenValidator validator;
     private final ClientID clientID;
     private final Secret clientSecret;
     private final URI redirectUri;
@@ -30,6 +35,8 @@ public class OIDCService {
         this.clientID = new ClientID(clientId);
         this.clientSecret = new Secret(clientSecret);
         this.redirectUri = new URI(redirectUri);
+        URL jwkSetURL = providerMetadata.getJWKSetURI().toURL();
+        this.validator = new IDTokenValidator(providerMetadata.getIssuer(), clientID, JWSAlgorithm.RS256, jwkSetURL);
     }
 
     /**
@@ -56,7 +63,7 @@ public class OIDCService {
     /**
      * Exchanges the authorization code for tokens using the PKCE code verifier.
      */
-    public JWTClaimsSet exchangeCode(String codeParam, CodeVerifier codeVerifier) throws Exception {
+    public JWTClaimsSet exchangeCode(String codeParam, CodeVerifier codeVerifier, Nonce expectedNonce) throws Exception {
         AuthorizationCode code = new AuthorizationCode(codeParam);
         AuthorizationGrant codeGrant = new AuthorizationCodeGrant(code, redirectUri, codeVerifier);
         ClientAuthentication clientAuth = new ClientSecretBasic(clientID, clientSecret);
@@ -70,6 +77,8 @@ public class OIDCService {
             throw new RuntimeException(response.toErrorResponse().getErrorObject().getDescription());
         }
         OIDCTokenResponse successResponse = (OIDCTokenResponse) response.toSuccessResponse();
-        return successResponse.getOIDCTokens().getIDToken().getJWTClaimsSet();
+        IDTokenClaimsSet claims = validator.validate(successResponse.getOIDCTokens().getIDToken(), expectedNonce);
+
+        return claims.toJWTClaimsSet();
     }
 }

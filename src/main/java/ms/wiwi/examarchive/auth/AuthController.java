@@ -41,6 +41,7 @@ public class AuthController {
         Nonce nonce = new Nonce();
         ctx.sessionAttribute("oauth_state", state.getValue());
         ctx.sessionAttribute("pkce_verifier", codeVerifier.getValue());
+        ctx.sessionAttribute("oauth_nonce", nonce.getValue());
         String authUrl = oidcService.getAuthUrl(state, nonce, idpHint, codeVerifier);
         ctx.redirect(authUrl);
     }
@@ -51,11 +52,17 @@ public class AuthController {
     public void callback(Context ctx) {
         String state = ctx.queryParam("state");
         String code = ctx.queryParam("code");
+        String storedNonceVal = ctx.sessionAttribute("oauth_nonce");
         String storedState = ctx.sessionAttribute("oauth_state");
         String verifierStr = ctx.sessionAttribute("pkce_verifier");
 
         if (verifierStr == null) {
             ctx.status(400).result("Missing PKCE Verifier in session");
+            return;
+        }
+
+        if (storedNonceVal == null) {
+            ctx.status(400).result("Missing Nonce");
             return;
         }
 
@@ -65,8 +72,9 @@ public class AuthController {
         }
 
         try {
+            Nonce expectedNonce = new Nonce(storedNonceVal);
             CodeVerifier verifier = new CodeVerifier(verifierStr);
-            JWTClaimsSet claims = oidcService.exchangeCode(code, verifier);
+            JWTClaimsSet claims = oidcService.exchangeCode(code, verifier, expectedNonce);
 
             String eppn = claims.getStringClaim("eppn");
             String firstname = claims.getStringClaim("given_name");
@@ -80,7 +88,7 @@ public class AuthController {
             User user = new User(eppn, firstname, lastname, Instant.now(), Instant.now(), email, role);
             logger.info("User {} logged in", user);
             repository.addOrUpdateUser(user);
-
+            ctx.req().getSession().invalidate();
             ctx.sessionAttribute("userId", user.id());
             ctx.redirect("/exams/search");
 

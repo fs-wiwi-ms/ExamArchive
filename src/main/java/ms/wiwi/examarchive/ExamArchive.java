@@ -19,6 +19,7 @@ public class ExamArchive {
         new ExamArchive().start();
     }
 
+    private final boolean developementMode;
     private final DBManager dbManager;
     private final Repository repository;
     private final OIDCService oidcService;
@@ -26,6 +27,12 @@ public class ExamArchive {
 
     public ExamArchive(){
         logger.info("Starting ExamArchive");
+        if(System.getenv("EXAMARCHIVE_DEV_MODE") != null && System.getenv("EXAMARCHIVE_DEV_MODE").equals("true")){
+            developementMode = true;
+            logger.info("Running in development mode");
+        } else {
+            developementMode = false;
+        }
         logger.info("Initializing OIDC service");
         try {
             this.oidcService = new OIDCService(
@@ -71,6 +78,12 @@ public class ExamArchive {
                 }
                 JteLocalizer.setLocale(locale);
             });
+            if(!developementMode){
+                config.jetty.modifyServletContextHandler(handler -> {
+                    handler.getSessionHandler().getSessionCookieConfig().setHttpOnly(true);
+                    handler.getSessionHandler().getSessionCookieConfig().setSecure(true);
+                });
+            }
         });
         javalin.start(1910);
     }

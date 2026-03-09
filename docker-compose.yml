@@ -27,6 +27,7 @@ services:
     ports:
       - "1910:1910"
     environment:
+      EXAMARCHIVE_DEV_MODE: "true"
       EXAMARCHIVE_DB_HOSTNAME: "db"
       EXAMARCHIVE_DB_PORT: "5432"
       EXAMARCHIVE_DB_USERNAME: "exam_user"
