@@ -25,7 +25,10 @@ dependencies {
     implementation("com.zaxxer:HikariCP:7.0.2")
     implementation("org.postgresql:postgresql:42.7.10")
     implementation("org.flywaydb:flyway-core:12.0.3")
-    implementation("org.flywaydb:flyway-database-postgresql:12.0.3")}
+    implementation("org.flywaydb:flyway-database-postgresql:12.0.3")
+    //AUTH
+    implementation("com.nimbusds:oauth2-oidc-sdk:11.33")
+}
 
 jte {
     sourceDirectory = file("src/main/jte").toPath()

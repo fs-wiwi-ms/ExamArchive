@@ -4,6 +4,8 @@ import gg.jte.ContentType;
 import gg.jte.TemplateEngine;
 import io.javalin.Javalin;
 import io.javalin.rendering.template.JavalinJte;
+import ms.wiwi.examarchive.auth.AuthController;
+import ms.wiwi.examarchive.auth.OIDCService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,22 +20,49 @@ public class ExamArchive {
     }
 
     private final DBManager dbManager;
-    private final Repository examRepository;
+    private final Repository repository;
+    private final OIDCService oidcService;
     private final Logger logger = LoggerFactory.getLogger(ExamArchive.class);
+
     public ExamArchive(){
         logger.info("Starting ExamArchive");
+        logger.info("Initializing OIDC service");
+        try {
+            this.oidcService = new OIDCService(
+                    System.getenv("KEYCLOAK_ISSUER"),
+                    System.getenv("KEYCLOAK_CLIENT_ID"),
+                    System.getenv("KEYCLOAK_CLIENT_SECRET"),
+                    System.getenv("KEYCLOAK_REDIRECT_URI")
+            );
+        } catch (Exception e) {
+            logger.error("Failed to initialize OIDC service", e);
+            throw new RuntimeException(e);
+        }
         logger.info("Initializing database connection");
         this.dbManager = createDatabaseManager();
-        examRepository = new Repository(dbManager);
+        repository = new Repository(dbManager);
         Runtime.getRuntime().addShutdownHook(new Thread(dbManager::close));
     }
 
     private void start() {
         dbManager.migrateDatabase();
         logger.info("Starting webserver");
+        AuthController authController = new AuthController(oidcService, repository);
         Javalin javalin = Javalin.create(config -> {
             config.fileRenderer(new JavalinJte(TemplateEngine.createPrecompiled(ContentType.Html)));
             config.routes.get("/", ctx -> ctx.render("index.jte"));
+            config.routes.after(_ -> JteLocalizer.clear());
+            config.staticFiles.add("/public");
+            config.routes.get("/login/{type}", authController::login);
+            config.routes.get("/auth/callback", authController::callback);
+            config.routes.get("/logout", authController::logout);
+            config.routes.get("/exams/search", ctx -> {
+                if(ctx.sessionAttribute("userId") == null){
+                    ctx.redirect("/login/user");
+                    return;
+                }
+                ctx.result("Hello " + ctx.sessionAttribute("userId") + " from Javalin");
+            });
             config.routes.before(ctx -> {
                 String acceptLanguage = ctx.header("Accept-Language");
                 Locale locale = Locale.GERMAN;
@@ -42,8 +71,6 @@ public class ExamArchive {
                 }
                 JteLocalizer.setLocale(locale);
             });
-            config.routes.after(_ -> JteLocalizer.clear());
-            config.staticFiles.add("/public");
         });
         javalin.start(1910);
     }

@@ -32,6 +32,10 @@ services:
       EXAMARCHIVE_DB_USERNAME: "exam_user"
       EXAMARCHIVE_DB_PASSWORD: "exam_password"
       EXAMARCHIVE_DB_DATABASE: "exam_db"
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      KEYCLOAK_REDIRECT_URI: "http://localhost:1910/auth/callback"
 
 volumes:
   postgres_data:

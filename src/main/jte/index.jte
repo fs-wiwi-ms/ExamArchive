@@ -36,7 +36,7 @@
             <main>
                 <p>${JteLocalizer.get("index.login.info")}</p>
             </main>
-            <button>${JteLocalizer.get("index.login.button")}</button>
+            <a href="/login/user"><button>${JteLocalizer.get("index.login.button")}</button></a>
             <footer style="text-align: center;">
                 <small style="color: #525f7a">${JteLocalizer.get("index.login.hint")}<a style="color: #525f7a; text-decoration: none" href="mailto:klausurarchiv@fachschaft-wiwi.ms"> Klausurarchiv@fachschaft-wiwi.ms</a></small>
             </footer>

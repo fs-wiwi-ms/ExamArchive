@@ -3,6 +3,7 @@ package ms.wiwi.examarchive;
 import ms.wiwi.examarchive.model.Exam;
 import ms.wiwi.examarchive.model.ExamStatus;
 import ms.wiwi.examarchive.model.Semester;
+import ms.wiwi.examarchive.model.User;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,7 +55,7 @@ public class Repository {
             statement.setString(2, exam.name());
             statement.setString(3, exam.moduleID());
             statement.setString(4, exam.semester().name());
-            statement.setDate(5, new Date(exam.uploadDate().toEpochMilli()));
+            statement.setTimestamp(5, Timestamp.from(exam.uploadDate()));
             statement.setString(6, exam.fileID());
             statement.setString(7, exam.uploaderID());
             statement.setString(8, exam.status().name());
@@ -62,6 +63,30 @@ public class Repository {
             statement.executeUpdate();
         } catch (SQLException e) {
             logger.error("Could not add exam to database", e);
+        }
+    }
+
+    /**
+     * Inserts a new user into the database or updates the existing users last login time.
+     * @param user User to insert
+     */
+    public void addOrUpdateUser(User user){
+        try(Connection connection = dbManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement("""
+        INSERT into users (userid, firstname, lastname, lastlogin, createdat, email, role) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (userid) DO UPDATE SET lastlogin = ?
+        """)) {
+            statement.setString(1, user.id());
+            statement.setString(2, user.firstname());
+            statement.setString(3, user.lastname());
+            statement.setTimestamp(4, Timestamp.from(user.lastLogin()));
+            statement.setTimestamp(5, Timestamp.from(user.createdAt()));
+            statement.setString(6, user.email());
+            statement.setString(7, user.role().name());
+            statement.setTimestamp(8, Timestamp.from(Instant.now()));
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
     }
 }
