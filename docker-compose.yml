@@ -37,6 +37,8 @@ services:
       KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
       KEYCLOAK_REDIRECT_URI: "http://localhost:1910/auth/callback"
+      KEYCLOAK_USER_AFFILIATION: "student@uni-muenster.de"
+      KEYCLOAK_ADMIN_AFFILIATION: "3809c3c5-058e-4d4d-ade7-5466d18e819d"
 
 volumes:
   postgres_data:

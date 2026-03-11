@@ -23,10 +23,14 @@ public class AuthController {
     private final OIDCService oidcService;
     private final Repository repository;
     private final Logger logger = LoggerFactory.getLogger(AuthController.class);
+    private final String userAffiliation;
+    private final String adminAffiliation;
 
-    public AuthController(OIDCService oidcService, Repository userRepository) {
+    public AuthController(OIDCService oidcService, Repository userRepository, String userAffiliation, String adminAffiliation) {
         this.oidcService = oidcService;
         this.repository = userRepository;
+        this.userAffiliation = userAffiliation;
+        this.adminAffiliation = adminAffiliation;
     }
 
     /**
@@ -43,9 +47,8 @@ public class AuthController {
         ctx.sessionAttribute("pkce_verifier", codeVerifier.getValue());
         ctx.sessionAttribute("oauth_nonce", nonce.getValue());
         String authUrl = oidcService.getAuthUrl(state, nonce, idpHint, codeVerifier);
-        ctx.header("HX-Redirect", authUrl);
         if(ctx.header("HX-Request") != null){
-            ctx.header("HX-Redirect", "/login/user");
+            ctx.header("HX-Redirect", authUrl);
             ctx.status(401);
             return;
         }
@@ -91,8 +94,11 @@ public class AuthController {
             String email = claims.getStringClaim("email");
             List<String> affiliation = claims.getStringListClaim("affiliation");
             Role role = Role.BLOCKED;
-            if(affiliation != null && affiliation.contains("student@uni-muenster.de")){
+            if(affiliation != null && checkAffiliation(affiliation, userAffiliation)){
                 role = Role.USER;
+            }
+            if(affiliation != null && checkAffiliation(affiliation, adminAffiliation)){
+                role = Role.ADMIN;
             }
             User user = new User(eppn, firstname, lastname, Instant.now(), Instant.now(), email, role);
             logger.info("User {} logged in", user);
@@ -105,12 +111,31 @@ public class AuthController {
             ctx.req().changeSessionId();
             ctx.sessionAttribute("userId", user.id());
             ctx.sessionAttribute("user", user);
+            if(user.role() == Role.ADMIN){
+                ctx.redirect("/admin/admin");
+                return;
+            }
             ctx.redirect("/exams/search");
 
         } catch (Exception e) {
             logger.error("Authentication failed during OIDC callback", e);
             ctx.status(500).result("Authentication failed");
         }
+    }
+
+    /**
+     * Checks if a user has a certain affiliation.
+     * @param affiliation Affiliation list
+     * @param allowedAffiliation Affiliation to check for
+     * @return True if the user has the affiliation, false otherwise
+     */
+    private boolean checkAffiliation(List<String> affiliation, String allowedAffiliation){
+        for(String a : affiliation){
+            if(a.equals(allowedAffiliation)){
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

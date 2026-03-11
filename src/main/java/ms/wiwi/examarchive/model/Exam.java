@@ -17,6 +17,7 @@ import java.time.Instant;
 public record Exam(String name,
                    String examID,
                    String moduleID,
+                   int year,
                    Semester semester,
                    Instant uploadDate,
                    String fileID,

@@ -4,8 +4,14 @@ import gg.jte.ContentType;
 import gg.jte.TemplateEngine;
 import io.javalin.Javalin;
 import io.javalin.rendering.template.JavalinJte;
+import ms.wiwi.examarchive.admin.AdminExamsController;
+import ms.wiwi.examarchive.admin.AdminIndexController;
+import ms.wiwi.examarchive.admin.AdminSettingsController;
+import ms.wiwi.examarchive.admin.AdminUsersController;
 import ms.wiwi.examarchive.auth.AuthController;
 import ms.wiwi.examarchive.auth.OIDCService;
+import ms.wiwi.examarchive.model.Role;
+import ms.wiwi.examarchive.model.User;
 import org.eclipse.jetty.http.HttpCookie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +26,7 @@ public class ExamArchive {
         new ExamArchive().start();
     }
 
-    private final boolean developementMode;
+    private final boolean developmentMode;
     private final DBManager dbManager;
     private final Repository repository;
     private final OIDCService oidcService;
@@ -29,10 +35,10 @@ public class ExamArchive {
     public ExamArchive(){
         logger.info("Starting ExamArchive");
         if(System.getenv("EXAMARCHIVE_DEV_MODE") != null && System.getenv("EXAMARCHIVE_DEV_MODE").equals("true")){
-            developementMode = true;
+            developmentMode = true;
             logger.info("Running in development mode");
         } else {
-            developementMode = false;
+            developmentMode = false;
         }
         logger.info("Initializing OIDC service");
         try {
@@ -52,10 +58,13 @@ public class ExamArchive {
         Runtime.getRuntime().addShutdownHook(new Thread(dbManager::close));
     }
 
+    /**
+     * Starts the webserver and loads all of its dependencies
+     */
     private void start() {
         dbManager.migrateDatabase();
         logger.info("Starting webserver");
-        AuthController authController = new AuthController(oidcService, repository);
+        AuthController authController = new AuthController(oidcService, repository, System.getenv("KEYCLOAK_USER_AFFILIATION"), System.getenv("KEYCLOAK_ADMIN_AFFILIATION"));
         Javalin javalin = Javalin.create(config -> {
             config.fileRenderer(new JavalinJte(TemplateEngine.createPrecompiled(ContentType.Html)));
             config.routes.get("/", ctx -> ctx.render("index.jte"));
@@ -66,6 +75,15 @@ public class ExamArchive {
             config.routes.get("/logout", authController::logout);
             config.routes.get("/exams/search", new SearchExamController());
             config.routes.post("/exams/search", new SearchExamController());
+            config.routes.get("/admin/admin", new AdminIndexController());
+            AdminExamsController adminExamsController = new AdminExamsController(repository);
+            config.routes.get("/admin/exams", adminExamsController::handleGet);
+            config.routes.post("/admin/exams/deletemodule", adminExamsController::handleRemoveModule);
+            config.routes.post("/admin/exams/addmodule", adminExamsController::handleAddModule);
+            config.routes.post("/admin/exams/acceptexam", adminExamsController::acceptExam);
+            config.routes.post("/admin/exams/declineexam", adminExamsController::deleteExam);
+            config.routes.get("/admin/users", new AdminUsersController());
+            config.routes.get("/admin/settings", new AdminSettingsController());
             config.routes.before("/exams/*", ctx -> {
                 if(ctx.sessionAttribute("user") == null){
                     if(ctx.header("HX-Request") != null){
@@ -76,6 +94,16 @@ public class ExamArchive {
                     ctx.redirect("/login/user");
                 }
             });
+            config.routes.before("/admin/*", ctx -> {
+                if(ctx.sessionAttribute("user") == null || ((User)ctx.sessionAttribute("user")).role() != Role.ADMIN){
+                    if(ctx.header("HX-Request") != null){
+                        ctx.header("HX-Redirect", "/login/admin");
+                        ctx.status(401);
+                        return;
+                    }
+                    ctx.redirect("/login/admin");
+                }
+            });
             config.routes.before(ctx -> {
                 String acceptLanguage = ctx.header("Accept-Language");
                 Locale locale = Locale.GERMAN;
@@ -84,7 +112,7 @@ public class ExamArchive {
                 }
                 JteLocalizer.setLocale(locale);
             });
-            if(!developementMode){
+            if(!developmentMode){
                 config.jetty.modifyServletContextHandler(handler -> {
                     handler.getSessionHandler().getSessionCookieConfig().setHttpOnly(true);
                     handler.getSessionHandler().getSessionCookieConfig().setSecure(true);
@@ -95,6 +123,10 @@ public class ExamArchive {
         javalin.start(1910);
     }
 
+    /**
+     * Creates an active instance of the database manager and checks if the connection is valid.
+     * @return Database manager
+     */
     private DBManager createDatabaseManager(){
         String hostname = System.getenv("EXAMARCHIVE_DB_HOSTNAME");
         String username = System.getenv("EXAMARCHIVE_DB_USERNAME");

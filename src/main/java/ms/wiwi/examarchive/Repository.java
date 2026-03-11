@@ -1,12 +1,16 @@
 package ms.wiwi.examarchive;
 
+import ms.wiwi.examarchive.admin.AdminExamList;
 import ms.wiwi.examarchive.model.*;
+import ms.wiwi.examarchive.model.Module;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.*;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Repository {
 
@@ -19,7 +23,7 @@ public class Repository {
 
     public @Nullable Exam getExam(String id){
         try(Connection connection = dbManager.getConnection();
-            PreparedStatement statement = connection.prepareStatement("SELECT (examid, name, moduleid, semester, uploaddate, fileid, uploaderid, status, professorid) FROM exams WHERE exams.examid = ?")){
+            PreparedStatement statement = connection.prepareStatement("SELECT examid, name, moduleid, year, semester, uploaddate, fileid, uploaderid, status, professorid FROM exams WHERE exams.examid = ?")) {
             statement.setString(1, id);
             ResultSet resultSet = statement.executeQuery();
             if(!resultSet.next()){
@@ -28,16 +32,35 @@ public class Repository {
             String examId = resultSet.getString("examid");
             String name = resultSet.getString("name");
             String moduleId = resultSet.getString("moduleid");
+            int year = resultSet.getInt("year");
             Semester semester = Semester.valueOf(resultSet.getString("semester"));
             String fileId = resultSet.getString("fileid");
             String uploaderId = resultSet.getString("uploaderid");
             ExamStatus status = ExamStatus.valueOf(resultSet.getString("status"));
             String professorId = resultSet.getString("professorid");
             Instant uploaddate = resultSet.getTimestamp("uploaddate").toInstant();
-            return new Exam(name, examId, moduleId, semester, uploaddate, fileId, uploaderId, status, professorId);
+            return new Exam(name, examId, moduleId, year, semester, uploaddate, fileId, uploaderId, status, professorId);
         } catch (SQLException e) {
             logger.error("Could not get exam from database", e);
             return null;
+        }
+    }
+
+    /**
+     * Deletes an exam from the database.
+     *
+     * @param moduleId Module ID of the exam to delete
+     * @return True if the exam was deleted, false otherwise
+     */
+    public boolean deleteModule(String moduleId) {
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement("DELETE FROM exams WHERE moduleid = ?")) {
+            statement.setString(1, moduleId);
+            statement.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            logger.error("Could not delete module from database", e);
+            return false;
         }
     }
 
@@ -47,16 +70,17 @@ public class Repository {
      */
     public void addExam(Exam exam){
         try (Connection connection = dbManager.getConnection();
-            PreparedStatement statement = connection.prepareStatement("INSERT INTO exams (examid, name, moduleid, semester, uploaddate, fileid, uploaderid, status, professorid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")){
+             PreparedStatement statement = connection.prepareStatement("INSERT INTO exams (examid, name, moduleid, semester, year, uploaddate, fileid, uploaderid, status, professorid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")){
             statement.setString(1, exam.examID());
             statement.setString(2, exam.name());
             statement.setString(3, exam.moduleID());
-            statement.setString(4, exam.semester().name());
-            statement.setTimestamp(5, Timestamp.from(exam.uploadDate()));
-            statement.setString(6, exam.fileID());
-            statement.setString(7, exam.uploaderID());
-            statement.setString(8, exam.status().name());
-            statement.setString(9, exam.professorID());
+            statement.setInt(4, exam.year());
+            statement.setString(5, exam.semester().name());
+            statement.setTimestamp(6, Timestamp.from(exam.uploadDate()));
+            statement.setString(7, exam.fileID());
+            statement.setString(8, exam.uploaderID());
+            statement.setString(9, exam.status().name());
+            statement.setString(10, exam.professorID());
             statement.executeUpdate();
         } catch (SQLException e) {
             logger.error("Could not add exam to database", e);
@@ -107,4 +131,118 @@ public class Repository {
             throw new RuntimeException("Database error during user upsert", e);
         }
     }
+
+    /**
+     * Adds a new module to the database.
+     *
+     * @param name Name of the module
+     * @param id   Module ID
+     */
+    public void addModule(String name, String id) {
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement("INSERT INTO modules (moduleid, name) VALUES (?, ?)")) {
+            statement.setString(1, id);
+            statement.setString(2, name);
+            statement.executeUpdate();
+        } catch (Exception e) {
+            logger.error("Could not add module to database", e);
+        }
+    }
+
+    /**
+     * Updates an exam in the database. The exam must already exist in the database.
+     *
+     * @param newExam Exam to update with modified fields
+     */
+    public void updateExam(Exam newExam) {
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                     UPDATE exams
+                     SET name = ?, moduleid = ?, year = ?, semester = ?, uploaddate = ?, fileid = ?, uploaderid = ?, status = ?, professorid = ?
+                     WHERE examid = ?
+                     """)) {
+            statement.setString(1, newExam.name());
+            statement.setString(2, newExam.moduleID());
+            statement.setInt(3, newExam.year());
+            statement.setString(4, newExam.semester().name());
+            statement.setTimestamp(5, Timestamp.from(newExam.uploadDate()));
+            statement.setString(6, newExam.fileID());
+            statement.setString(7, newExam.uploaderID());
+            statement.setString(8, newExam.status().name());
+            statement.setString(9, newExam.professorID());
+            statement.setString(10, newExam.examID());
+            statement.executeUpdate();
+        } catch (Exception e) {
+            logger.error("Could not update exam in database", e);
+        }
+    }
+
+    /**
+     * Deletes an exam from the database.
+     *
+     * @param id Exam ID to delete
+     */
+    public void deleteExam(String id) {
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement("DELETE FROM exams WHERE examid = ?")) {
+            statement.setString(1, id);
+            statement.executeUpdate();
+        } catch (Exception e) {
+            logger.error("Could not delete exam from database", e);
+        }
+    }
+
+    public List<AdminExamList> getAllExams() {
+        List<AdminExamList> allExams = new ArrayList<>();
+
+        String query = """
+            SELECT
+                e.examID, e.name AS exam_name, e.semester, e.year, e.uploadDate, e.fileID, e.status,
+                m.moduleID, m.name AS module_name,
+                p.professorID, p.firstname AS prof_firstname, p.lastname AS prof_lastname,
+                u.userID, u.firstname AS user_firstname, u.lastname AS user_lastname, u.lastLogin AS user_lastLogin, u.createdAt AS user_createdAt, u.email AS user_email, u.role AS user_role
+            FROM exams e
+            LEFT JOIN modules m ON e.moduleID = m.moduleID
+            LEFT JOIN professors p ON e.professorID = p.professorID
+            LEFT JOIN users u ON e.uploaderID = u.userID
+        """;
+
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query);
+             ResultSet resultSet = statement.executeQuery()) {
+            while (resultSet.next()) {
+                String examId = resultSet.getString("examID");
+                String name = resultSet.getString("exam_name");
+                String status = resultSet.getString("status");
+                int year = resultSet.getInt("year");
+                Semester semester = Semester.valueOf(resultSet.getString("semester"));
+                Instant uploadDate = resultSet.getTimestamp("uploadDate").toInstant();
+                String fileId = resultSet.getString("fileID");
+                String moduleId = resultSet.getString("moduleID");
+                String moduleName = resultSet.getString("module_name");
+                String professorId = resultSet.getString("professorID");
+                String professorFirstName = resultSet.getString("prof_firstname");
+                String professorLastName = resultSet.getString("prof_lastname");
+                String uploaderId = resultSet.getString("userID");
+                User uploader = null;
+                if (uploaderId != null) {
+                    String uploaderFirstName = resultSet.getString("user_firstname");
+                    String uploaderLastName = resultSet.getString("user_lastname");
+                    String uploaderEmail = resultSet.getString("user_email");
+                    Instant uploaderLastLogin = resultSet.getTimestamp("user_lastLogin").toInstant();
+                    Instant uploaderCreatedAt = resultSet.getTimestamp("user_createdAt").toInstant();
+                    Role uploaderRole = Role.valueOf(resultSet.getString("user_role"));
+                    uploader = new User(uploaderId, uploaderFirstName, uploaderLastName, uploaderLastLogin, uploaderCreatedAt, uploaderEmail, uploaderRole);
+                }
+                Module module = new Module(moduleName, moduleId);
+                Professor professor = new Professor(professorId, professorFirstName, professorLastName);
+                Exam exam = new Exam(name, examId, moduleId, year, semester, uploadDate, fileId, uploaderId, ExamStatus.valueOf(status), professorId);
+                allExams.add(new AdminExamList(module, exam, professor, uploader));
+            }
+            return allExams;
+        } catch (SQLException e) {
+            logger.error("Could not get all exams from database", e);
+            return List.of();
+        }
+   }
 }

@@ -17,7 +17,7 @@
                     <summary>☰</summary> <ul dir="rtl">
                         <li><a href="mailto:klausurarchiv@fachschaft-wiwi.ms">${JteLocalizer.get("header.contact")}</a></li>
                         <li><a href="https://fachschaft-wiwi.ms/">${JteLocalizer.get("header.website")}</a></li>
-                        <li><a href="/admin">${JteLocalizer.get("header.admin")}</a></li>
+                        <li><a href="/login/admin">${JteLocalizer.get("header.admin")}</a></li>
                     </ul>
                 </details>
             </li>
