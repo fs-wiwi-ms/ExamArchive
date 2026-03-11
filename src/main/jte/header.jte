@@ -1,9 +1,15 @@
 @import ms.wiwi.examarchive.JteLocalizer
-<header class="container">
-    <nav>
+<style>
+    #header {
+        background-color: #10375B;
+    }
+</style>
+
+<header id="header">
+    <nav class="container">
         <ul>
-            <li><img style="height: 2rem; width: auto;" src="/assets/fs_logo.svg" alt="Logo"></li>
-            <li><strong>${JteLocalizer.get("header.title")}</strong></li>
+            <li><img style="height: 2rem; width: auto;" src="/assets/fs_logo_white.svg" alt="Logo"></li>
+            <li><strong style="color: #ffffff">${JteLocalizer.get("header.title")}</strong></li>
         </ul>
         <ul>
             <li>

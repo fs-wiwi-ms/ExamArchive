@@ -1,6 +1,29 @@
 @import ms.wiwi.examarchive.JteLocalizer
-<footer class="container">
-    <nav>
+<style>
+    footer {
+        background-color: #10375B;
+    }
+
+    footer li,
+    footer a {
+        color: #ffffff;
+        text-decoration-color: #ffffff;
+    }
+
+    @media (max-width: 768px) {
+        footer nav,
+        footer nav ul {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        footer nav ul {
+            margin: 0;
+        }
+    }
+</style>
+
+<footer>
+    <nav class="container">
         <ul>
             <li><strong>&copy;Fachschaft WiWi</strong></li>
         </ul>
@@ -11,17 +34,3 @@
         </ul>
     </nav>
 </footer>
-<style>
-   @media (max-width: 768px) {
-       footer nav {
-           flex-wrap: wrap;
-           justify-content: center;
-       }
-
-       footer nav ul {
-           flex-wrap: wrap;
-           justify-content: center;
-           margin: 0;
-       }
-   }
-</style>

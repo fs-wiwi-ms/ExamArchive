@@ -43,6 +43,12 @@ public class AuthController {
         ctx.sessionAttribute("pkce_verifier", codeVerifier.getValue());
         ctx.sessionAttribute("oauth_nonce", nonce.getValue());
         String authUrl = oidcService.getAuthUrl(state, nonce, idpHint, codeVerifier);
+        ctx.header("HX-Redirect", authUrl);
+        if(ctx.header("HX-Request") != null){
+            ctx.header("HX-Redirect", "/login/user");
+            ctx.status(401);
+            return;
+        }
         ctx.redirect(authUrl);
     }
 
@@ -90,9 +96,15 @@ public class AuthController {
             }
             User user = new User(eppn, firstname, lastname, Instant.now(), Instant.now(), email, role);
             logger.info("User {} logged in", user);
-            repository.addOrUpdateUser(user);
+            user = repository.addOrUpdateUser(user);
+            if(user.role() == Role.BLOCKED){
+                ctx.status(403).result("You are not allowed to log in.");
+                logger.info("User {} tried to log in but is not allowed", email);
+                return;
+            }
             ctx.req().changeSessionId();
             ctx.sessionAttribute("userId", user.id());
+            ctx.sessionAttribute("user", user);
             ctx.redirect("/exams/search");
 
         } catch (Exception e) {

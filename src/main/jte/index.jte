@@ -17,7 +17,6 @@
             min-height: 100vh;
         }
         #main-content {
-            background-color: #10375B;
             flex: 1;
             display: flex;
             align-items: center;

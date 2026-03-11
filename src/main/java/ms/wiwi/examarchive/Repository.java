@@ -1,9 +1,6 @@
 package ms.wiwi.examarchive;
 
-import ms.wiwi.examarchive.model.Exam;
-import ms.wiwi.examarchive.model.ExamStatus;
-import ms.wiwi.examarchive.model.Semester;
-import ms.wiwi.examarchive.model.User;
+import ms.wiwi.examarchive.model.*;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,15 +64,21 @@ public class Repository {
     }
 
     /**
-     * Inserts a new user into the database or updates the existing users last login time.
+     * Inserts a new user into the database or updates the existing users last login time. Returns the inserted user
+     * with up-to-date information.
      * @param user User to insert
      */
-    public void addOrUpdateUser(User user){
-        try(Connection connection = dbManager.getConnection();
-            PreparedStatement statement = connection.prepareStatement("""
-        INSERT into users (userid, firstname, lastname, lastlogin, createdat, email, role) VALUES (?, ?, ?, ?, ?, ?, ?)
+    public User addOrUpdateUser(User user) {
+        String sql = """
+        INSERT INTO users (userid, firstname, lastname, lastlogin, createdat, email, role)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (userid) DO UPDATE SET lastlogin = ?
-        """)) {
+        RETURNING userid, firstname, lastname, lastlogin, createdat, email, role
+        """;
+
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
             statement.setString(1, user.id());
             statement.setString(2, user.firstname());
             statement.setString(3, user.lastname());
@@ -84,9 +87,24 @@ public class Repository {
             statement.setString(6, user.email());
             statement.setString(7, user.role().name());
             statement.setTimestamp(8, Timestamp.from(Instant.now()));
-            statement.executeUpdate();
+
+            try (ResultSet rs = statement.executeQuery()) {
+                if (rs.next()) {
+                    return new User(
+                            rs.getString("userid"),
+                            rs.getString("firstname"),
+                            rs.getString("lastname"),
+                            rs.getTimestamp("lastlogin").toInstant(),
+                            rs.getTimestamp("createdat").toInstant(),
+                            rs.getString("email"),
+                            Role.valueOf(rs.getString("role"))
+                    );
+                } else {
+                    throw new RuntimeException("Upsert failed: No user data returned.");
+                }
+            }
         } catch (SQLException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Database error during user upsert", e);
         }
     }
 }

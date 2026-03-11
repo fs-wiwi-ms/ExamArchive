@@ -64,12 +64,17 @@ public class ExamArchive {
             config.routes.get("/login/{type}", authController::login);
             config.routes.get("/auth/callback", authController::callback);
             config.routes.get("/logout", authController::logout);
-            config.routes.get("/exams/search", ctx -> {
-                if(ctx.sessionAttribute("userId") == null){
+            config.routes.get("/exams/search", new SearchExamController());
+            config.routes.post("/exams/search", new SearchExamController());
+            config.routes.before("/exams/*", ctx -> {
+                if(ctx.sessionAttribute("user") == null){
+                    if(ctx.header("HX-Request") != null){
+                        ctx.header("HX-Redirect", "/login/user");
+                        ctx.status(401);
+                        return;
+                    }
                     ctx.redirect("/login/user");
-                    return;
                 }
-                ctx.result("Hello " + ctx.sessionAttribute("userId") + " from Javalin");
             });
             config.routes.before(ctx -> {
                 String acceptLanguage = ctx.header("Accept-Language");
@@ -104,7 +109,7 @@ public class ExamArchive {
             if(connection.isValid(30)){
                 return dbManager;
             }
-        } catch (SQLException e) {}
+        } catch (SQLException _) {}
         return dbManager;
     }
 }
