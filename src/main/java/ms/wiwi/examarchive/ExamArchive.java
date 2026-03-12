@@ -82,7 +82,11 @@ public class ExamArchive {
             config.routes.post("/admin/exams/addmodule", adminExamsController::handleAddModule);
             config.routes.post("/admin/exams/acceptexam", adminExamsController::acceptExam);
             config.routes.post("/admin/exams/declineexam", adminExamsController::deleteExam);
-            config.routes.get("/admin/users", new AdminUsersController());
+            AdminUsersController adminUsersController = new AdminUsersController(repository);
+            config.routes.get("/admin/users", adminUsersController::handleGet);
+            config.routes.post("/admin/users/search", adminUsersController::handleSearch);
+            config.routes.post("/admin/users/block", adminUsersController::handleBlock);
+            config.routes.post("/admin/users/unblock", adminUsersController::handleUnblock);
             config.routes.get("/admin/settings", new AdminSettingsController());
             config.routes.before("/exams/*", ctx -> {
                 if(ctx.sessionAttribute("user") == null){

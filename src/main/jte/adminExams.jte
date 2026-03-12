@@ -91,3 +91,11 @@
         </table>
     </details>
 @endfor
+<div class="container">
+    <form>
+        <fieldset role="group">
+            <input name="name" type="text" placeholder="Modul hinzufügen" pattern="^[a-zA-Z0-9ÄÖÜäöüß]+( [a-zA-Z0-9ÄÖÜäöüß]+)*$"/>
+            <input type="submit" value="Hinzufügen" hx-post="/admin/exams/addmodule" hx-target="#tab-content"/>
+        </fieldset>
+    </form>
+</div>

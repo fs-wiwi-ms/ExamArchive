@@ -33,6 +33,7 @@ public class AdminExamsController {
             return;
         }
         repository.addModule(body, UUID.randomUUID().toString());
+        logger.info("Created module " + body);
         handleGet(ctx);
     }
 
@@ -47,6 +48,7 @@ public class AdminExamsController {
             ctx.result("Das Modul konnte nicht gelöscht werden. Vermutlich hat es noch Klausuren :c");
             return;
         }
+        logger.info("Deleted module " + body);
         handleGet(ctx);
     }
 
@@ -82,7 +84,7 @@ public class AdminExamsController {
         List<AdminExamList> exams = repository.getAllExams();
         List<AdminExamList> acceptedExams = exams.stream().filter(exam -> exam.exam().status() == ExamStatus.ACCEPTED).toList();
         List<AdminExamList> pendingExams = exams.stream().filter(exam -> exam.exam().status() == ExamStatus.PENDING).toList();
-        List<Module> modules = exams.stream().map(AdminExamList::module).distinct().toList();
+        List<Module> modules = repository.getAllModules();
         ctx.render("adminExams.jte", Map.of("modules", modules, "acceptedExams", acceptedExams, "pendingExams", pendingExams));
     }
 }

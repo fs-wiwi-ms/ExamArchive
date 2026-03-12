@@ -54,7 +54,7 @@ public class Repository {
      */
     public boolean deleteModule(String moduleId) {
         try (Connection connection = dbManager.getConnection();
-             PreparedStatement statement = connection.prepareStatement("DELETE FROM exams WHERE moduleid = ?")) {
+             PreparedStatement statement = connection.prepareStatement("DELETE FROM modules WHERE moduleid = ?")) {
             statement.setString(1, moduleId);
             statement.executeUpdate();
             return true;
@@ -245,4 +245,115 @@ public class Repository {
             return List.of();
         }
    }
+
+   public List<Module> getAllModules() {
+        List<Module> allModules = new ArrayList<>();
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM modules ORDER BY name ASC");
+             ResultSet resultSet = preparedStatement.executeQuery()){
+            while (resultSet.next()){
+                String moduleId = resultSet.getString("moduleid");
+                String moduleName = resultSet.getString("name");
+                allModules.add(new Module(moduleName, moduleId));
+            }
+            return allModules;
+        } catch (SQLException e){
+            logger.error("Could not get all modules from database", e);
+            return List.of();
+        }
+   }
+
+    /**
+     * Counts the number of users with a certain role.
+     * @param role Role to count
+     * @return Number of users with the role
+     */
+   public int countUsersByRole(Role role){
+       try(Connection connection = dbManager.getConnection();
+           PreparedStatement statement = connection.prepareStatement("SELECT COUNT(*) FROM users WHERE role = ?")) {
+           statement.setString(1, role.name());
+           ResultSet resultSet = statement.executeQuery();
+           resultSet.next();
+           return resultSet.getInt("count");
+       } catch (SQLException e) {
+           logger.error("Could not count all " + role.name() + " accounts", e);
+           return 0;
+       }
+   }
+
+    /**
+     * Searches for the top 10 users matching the given search query.
+     * Matches against a concatenation of firstname, lastname, and email using pg_trgm similarity.
+     *
+     * @param searchQuery The string to search for
+     * @return List of up to 10 matching users
+     */
+    public List<User> searchUsers(String searchQuery) {
+        List<User> matchingUsers = new ArrayList<>();
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+            SELECT userid, firstname, lastname, lastlogin, createdat, email, role
+                FROM users
+                WHERE ? <% (firstname || ' ' || lastname || ' ' || email)
+                ORDER BY word_similarity(?, firstname || ' ' || lastname || ' ' || email) DESC
+                LIMIT 10
+            """)) {
+            statement.setString(1, searchQuery);
+            statement.setString(2, searchQuery);
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    matchingUsers.add(new User(
+                            rs.getString("userid"),
+                            rs.getString("firstname"),
+                            rs.getString("lastname"),
+                            rs.getTimestamp("lastlogin").toInstant(),
+                            rs.getTimestamp("createdat").toInstant(),
+                            rs.getString("email"),
+                            Role.valueOf(rs.getString("role"))
+                    ));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Could not search for users using query: {}", searchQuery, e);
+        }
+        return matchingUsers;
+    }
+
+    /**
+     * Gets a user by their ID.
+     * @param id User ID
+     * @return the user with the given ID, or null if the user does not exist
+     */
+    public @Nullable User getUser(String id) {
+        try(Connection connection = dbManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement("SELECT userid, firstname, lastname, lastlogin, createdat, email, role FROM users WHERE userid = ?")){
+            statement.setString(1, id);
+            ResultSet resultSet = statement.executeQuery();
+            if(!resultSet.next()){
+                return null;
+            }
+            String userId = resultSet.getString("userid");
+            String firstName = resultSet.getString("firstname");
+            String lastName = resultSet.getString("lastname");
+            Instant lastLogin = resultSet.getTimestamp("lastlogin").toInstant();
+            Instant createdAt = resultSet.getTimestamp("createdat").toInstant();
+            String email = resultSet.getString("email");
+            Role role = Role.valueOf(resultSet.getString("role"));
+            return new User(userId, firstName, lastName, lastLogin, createdAt, email, role);
+        } catch (SQLException e) {
+            logger.error("Could not get user from database", e);
+            return null;
+        }
+    }
+
+    public void updateUserRole(String id, Role role){
+        try(Connection connection = dbManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement("UPDATE users SET role = ? WHERE userid = ?")){
+            statement.setString(1, role.name());
+            statement.setString(2, id);
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Could not update user role in database", e);
+        }
+    }
 }
