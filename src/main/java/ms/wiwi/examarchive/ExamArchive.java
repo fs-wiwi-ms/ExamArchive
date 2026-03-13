@@ -73,8 +73,9 @@ public class ExamArchive {
             config.routes.get("/login/{type}", authController::login);
             config.routes.get("/auth/callback", authController::callback);
             config.routes.get("/logout", authController::logout);
-            config.routes.get("/exams/search", new SearchExamController());
-            config.routes.post("/exams/search", new SearchExamController());
+            SearchExamController searchExamController = new SearchExamController(repository);
+            config.routes.get("/exams/search", searchExamController);
+            config.routes.post("/exams/search", searchExamController);
             config.routes.get("/admin/admin", new AdminIndexController());
             AdminExamsController adminExamsController = new AdminExamsController(repository);
             config.routes.get("/admin/exams", adminExamsController::handleGet);

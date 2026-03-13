@@ -7,3 +7,4 @@
 - Add a major to each module to filter modules by major (Maybe as filter crumps)
 - Show top downloaded Exams at start of searching page
 - Clean up database when deleting exams
+- Changing the module, year, semester and year in admin panel

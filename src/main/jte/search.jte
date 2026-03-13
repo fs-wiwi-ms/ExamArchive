@@ -69,6 +69,7 @@
                    placeholder="${JteLocalizer.get("search.placeholder")}"
                    aria-placeholder="${JteLocalizer.get("search.placeholder")}"
                    name="search"
+                   autocomplete="off"
                    hx-post="/exams/search"
                    hx-trigger="input changed delay:300ms, keyup[key=='Enter'], load"
                    hx-target="#search-results"

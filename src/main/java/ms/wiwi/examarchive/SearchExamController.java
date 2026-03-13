@@ -7,9 +7,14 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 
 public class SearchExamController implements Handler {
+
+    private final Repository repository;
+
+    public SearchExamController(Repository repository) {
+        this.repository = repository;
+    }
 
 
     @Override
@@ -21,12 +26,10 @@ public class SearchExamController implements Handler {
         if(ctx.method() != HandlerType.POST){
             return;
         }
-        List<ModuleSearchResult> resultList = List.of(
-                new ModuleSearchResult("Mathe 1", "12345", new String[]{"Prof. Dr. Pfingsten", "Dr. Ingolf Terveer"}, new Random().nextInt(1,99)),
-                new ModuleSearchResult("Info 123", "12345", new String[]{"Prof. Dr. Pfingsten", "Dr. Ingolf Terveer", "Dr. Dr. Breeeeee"}, 10),
-                new ModuleSearchResult("BWL I", "12345", new String[]{"Prof. Dr. Pfingsten", "Dr. Ingolf Fagradal"}, 10),
-                new ModuleSearchResult("BWL 2", "12345", new String[]{"Prof. Dr. Pfingsten", "Dr. Ingolf Terveer"}, 10)
-        );
+        if(ctx.formParam("search") == null || ctx.formParam("search").isBlank()){
+            return;
+        }
+        List<ModuleSearchResult> resultList = repository.searchModules(ctx.formParam("search"));
         System.out.println(ctx.formParamMap());
         System.out.println(ctx.body());
         ctx.render("searchResult.jte", Map.of("results", resultList));

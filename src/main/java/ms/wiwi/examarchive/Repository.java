@@ -11,6 +11,7 @@ import java.sql.*;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public class Repository {
 
@@ -57,6 +58,7 @@ public class Repository {
              PreparedStatement statement = connection.prepareStatement("DELETE FROM modules WHERE moduleid = ?")) {
             statement.setString(1, moduleId);
             statement.executeUpdate();
+            refreshModuleSearchView();
             return true;
         } catch (SQLException e) {
             logger.error("Could not delete module from database", e);
@@ -82,6 +84,7 @@ public class Repository {
             statement.setString(9, exam.status().name());
             statement.setString(10, exam.professorID());
             statement.executeUpdate();
+            refreshModuleSearchView();
         } catch (SQLException e) {
             logger.error("Could not add exam to database", e);
         }
@@ -147,6 +150,7 @@ public class Repository {
         } catch (Exception e) {
             logger.error("Could not add module to database", e);
         }
+        refreshModuleSearchView();
     }
 
     /**
@@ -172,6 +176,7 @@ public class Repository {
             statement.setString(9, newExam.professorID());
             statement.setString(10, newExam.examID());
             statement.executeUpdate();
+            refreshModuleSearchView();
         } catch (Exception e) {
             logger.error("Could not update exam in database", e);
         }
@@ -187,6 +192,7 @@ public class Repository {
              PreparedStatement statement = connection.prepareStatement("DELETE FROM exams WHERE examid = ?")) {
             statement.setString(1, id);
             statement.executeUpdate();
+            refreshModuleSearchView();
         } catch (Exception e) {
             logger.error("Could not delete exam from database", e);
         }
@@ -355,5 +361,54 @@ public class Repository {
         } catch (SQLException e) {
             logger.error("Could not update user role in database", e);
         }
+    }
+
+    /**
+     * Searches for the top 10 modules matching the given search query.
+     * Matches against a concatenation of module name, keywords, and professor names.
+     *
+     * @param searchQuery The string to search for
+     * @return List of up to 10 matching modules
+     */
+    public List<ModuleSearchResult> searchModules(String searchQuery) {
+        List<ModuleSearchResult> matchingModules = new ArrayList<>();
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                         SELECT module_name, moduleid, professors_array, exam_count
+                         FROM module_search_view
+                         WHERE ? <% search_text
+                         ORDER BY word_similarity(?, search_text) DESC
+                         LIMIT 10
+                     """)) {
+            statement.setString(1, searchQuery);
+            statement.setString(2, searchQuery);
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    Array profArray = rs.getArray("professors_array");
+                    String[] professors = profArray != null ? (String[]) profArray.getArray() : new String[0];
+
+                    matchingModules.add(new ModuleSearchResult(
+                            rs.getString("module_name"),
+                            rs.getString("moduleid"),
+                            professors,
+                            rs.getInt("exam_count")
+                    ));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Could not search for modules using query: {}", searchQuery, e);
+        }
+        return matchingModules;
+    }
+
+    private void refreshModuleSearchView() {
+        CompletableFuture.runAsync(() -> {
+            try (Connection connection = dbManager.getConnection();
+                 Statement statement = connection.createStatement()) {
+                statement.executeUpdate("REFRESH MATERIALIZED VIEW CONCURRENTLY module_search_view");
+            } catch (SQLException e) {
+                logger.error("Could not refresh module search view", e);
+            }
+        });
     }
 }
