@@ -255,7 +255,7 @@ public class Repository {
    public List<Module> getAllModules() {
         List<Module> allModules = new ArrayList<>();
         try (Connection connection = dbManager.getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM modules ORDER BY");
+             PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM modules ORDER BY name");
              ResultSet resultSet = preparedStatement.executeQuery()){
             while (resultSet.next()){
                 String moduleId = resultSet.getString("moduleid");
