@@ -76,6 +76,9 @@ public class ExamArchive {
             SearchExamController searchExamController = new SearchExamController(repository);
             config.routes.get("/exams/search", searchExamController);
             config.routes.post("/exams/search", searchExamController);
+            ShowModuleHandler showModuleHandler = new ShowModuleHandler(repository);
+            config.routes.get("/exams/module/{moduleid}", showModuleHandler::handleGet);
+            config.routes.post("/exams/module/{moduleid}/filter", showModuleHandler::handleFilter);
             config.routes.get("/admin/admin", new AdminIndexController());
             AdminExamsController adminExamsController = new AdminExamsController(repository);
             config.routes.get("/admin/exams", adminExamsController::handleGet);

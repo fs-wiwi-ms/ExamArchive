@@ -29,9 +29,7 @@ public class SearchExamController implements Handler {
         if(ctx.formParam("search") == null || ctx.formParam("search").isBlank()){
             return;
         }
-        List<ModuleSearchResult> resultList = repository.searchModules(ctx.formParam("search"));
-        System.out.println(ctx.formParamMap());
-        System.out.println(ctx.body());
+        List<ModuleSearchResultDTO> resultList = repository.searchModules(ctx.formParam("search"));
         ctx.render("searchResult.jte", Map.of("results", resultList));
     }
 }

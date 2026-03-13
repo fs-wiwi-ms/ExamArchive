@@ -1,8 +1,8 @@
 @import ms.wiwi.examarchive.JteLocalizer
-@import ms.wiwi.examarchive.ModuleSearchResult
+@import ms.wiwi.examarchive.ModuleSearchResultDTO
 @import java.util.List
 
-@param List<ModuleSearchResult> results
+@param List<ModuleSearchResultDTO> results
 
 <style>
     .search-result-list {
@@ -130,9 +130,9 @@
 @else
     <div id="search-results">
         <ul class="search-result-list">
-            @for(ModuleSearchResult result : results)
+            @for(ModuleSearchResultDTO result : results)
                 <li class="search-result-item">
-                    <a href="/exams/${result.moduleID()}" class="search-result-link">
+                    <a href="/exams/module/${result.moduleID()}" class="search-result-link">
 
                         <div class="result-info">
                             <h5 class="result-title">${result.name()}</h5>

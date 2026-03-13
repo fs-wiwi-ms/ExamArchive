@@ -1,6 +1,6 @@
 package ms.wiwi.examarchive;
 
-import ms.wiwi.examarchive.admin.AdminExamList;
+import ms.wiwi.examarchive.admin.AdminExamListDTO;
 import ms.wiwi.examarchive.model.*;
 import ms.wiwi.examarchive.model.Module;
 import org.jetbrains.annotations.Nullable;
@@ -198,8 +198,8 @@ public class Repository {
         }
     }
 
-    public List<AdminExamList> getAllExams() {
-        List<AdminExamList> allExams = new ArrayList<>();
+    public List<AdminExamListDTO> getAllExams() {
+        List<AdminExamListDTO> allExams = new ArrayList<>();
 
         String query = """
             SELECT
@@ -243,7 +243,7 @@ public class Repository {
                 Module module = new Module(moduleName, moduleId);
                 Professor professor = new Professor(professorId, professorFirstName, professorLastName);
                 Exam exam = new Exam(name, examId, moduleId, year, semester, uploadDate, fileId, uploaderId, ExamStatus.valueOf(status), professorId);
-                allExams.add(new AdminExamList(module, exam, professor, uploader));
+                allExams.add(new AdminExamListDTO(module, exam, professor, uploader));
             }
             return allExams;
         } catch (SQLException e) {
@@ -255,7 +255,7 @@ public class Repository {
    public List<Module> getAllModules() {
         List<Module> allModules = new ArrayList<>();
         try (Connection connection = dbManager.getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM modules ORDER BY name ASC");
+             PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM modules ORDER BY");
              ResultSet resultSet = preparedStatement.executeQuery()){
             while (resultSet.next()){
                 String moduleId = resultSet.getString("moduleid");
@@ -370,8 +370,8 @@ public class Repository {
      * @param searchQuery The string to search for
      * @return List of up to 10 matching modules
      */
-    public List<ModuleSearchResult> searchModules(String searchQuery) {
-        List<ModuleSearchResult> matchingModules = new ArrayList<>();
+    public List<ModuleSearchResultDTO> searchModules(String searchQuery) {
+        List<ModuleSearchResultDTO> matchingModules = new ArrayList<>();
         try (Connection connection = dbManager.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
                          SELECT module_name, moduleid, professors_array, exam_count
@@ -387,7 +387,7 @@ public class Repository {
                     Array profArray = rs.getArray("professors_array");
                     String[] professors = profArray != null ? (String[]) profArray.getArray() : new String[0];
 
-                    matchingModules.add(new ModuleSearchResult(
+                    matchingModules.add(new ModuleSearchResultDTO(
                             rs.getString("module_name"),
                             rs.getString("moduleid"),
                             professors,
@@ -401,6 +401,23 @@ public class Repository {
         return matchingModules;
     }
 
+    public @Nullable Module getModule(String id) {
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement("SELECT moduleid, name FROM modules WHERE moduleid = ?")) {
+            statement.setString(1, id);
+            ResultSet resultSet = statement.executeQuery();
+            if (!resultSet.next()) {
+                return null;
+            }
+            String moduleId = resultSet.getString("moduleid");
+            String moduleName = resultSet.getString("name");
+            return new Module(moduleName, moduleId);
+        } catch (SQLException e) {
+            logger.error("Could not get module from database", e);
+            return null;
+        }
+    }
+
     private void refreshModuleSearchView() {
         CompletableFuture.runAsync(() -> {
             try (Connection connection = dbManager.getConnection();
@@ -410,5 +427,44 @@ public class Repository {
                 logger.error("Could not refresh module search view", e);
             }
         });
+    }
+
+    public List<ProfessorExamDTO> getExamsAndProfessors(String moduleID) {
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                     SELECT e.examid, e.name, e.uploaddate, e.uploaderid, e.year,
+                            e.semester, e.fileid, e.status, e.professorid,
+                            p.firstname, p.lastname
+                     FROM exams e
+                     LEFT JOIN professors p ON e.professorid = p.professorid
+                     WHERE e.moduleid = ? AND e.status = ?
+                     ORDER BY e.year DESC, e.semester DESC
+                     """)
+        ) {
+            statement.setString(1, moduleID);
+            statement.setString(2, ExamStatus.ACCEPTED.name());
+            ResultSet resultSet = statement.executeQuery();
+            List<ProfessorExamDTO> exams = new ArrayList<>();
+            while (resultSet.next()) {
+                String examid = resultSet.getString("examid");
+                String name = resultSet.getString("name");
+                Instant uploadDate = resultSet.getTimestamp("uploaddate").toInstant();
+                String uploaderid = resultSet.getString("uploaderid");
+                int year = resultSet.getInt("year");
+                Semester semester = Semester.valueOf(resultSet.getString("semester"));
+                String fileid = resultSet.getString("fileid");
+                ExamStatus status = ExamStatus.valueOf(resultSet.getString("status"));
+                String professorid = resultSet.getString("professorid");
+                String firstname = resultSet.getString("firstname");
+                String lastname = resultSet.getString("lastname");
+                Exam exam = new Exam(name, examid, moduleID, year, semester, uploadDate, fileid, uploaderid, status, professorid);
+                Professor professor = new Professor(professorid, firstname, lastname);
+                exams.add(new ProfessorExamDTO(exam, professor));
+            }
+            return exams;
+        } catch (SQLException e) {
+            logger.error("Could not get exams and professors for module {}", moduleID, e);
+            return List.of();
+        }
     }
 }

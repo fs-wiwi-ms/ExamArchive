@@ -1,10 +1,10 @@
-@import ms.wiwi.examarchive.admin.AdminExamList
+@import ms.wiwi.examarchive.admin.AdminExamListDTO
 @import ms.wiwi.examarchive.model.Module
 @import java.text.SimpleDateFormat
 @import java.util.Date
 @import java.util.List
-@param List<AdminExamList> pendingExams
-@param List<AdminExamList> acceptedExams
+@param List<AdminExamListDTO> pendingExams
+@param List<AdminExamListDTO> acceptedExams
 @param List<Module> modules
 @if(!pendingExams.isEmpty())
 <div style="background-color: #dddddd; padding: 10px;">
@@ -23,11 +23,11 @@
         </tr>
         </thead>
         <tbody>
-        @for(AdminExamList exam : pendingExams)
+        @for(AdminExamListDTO exam : pendingExams)
             <tr>
                 <th scope="row">${exam.module().name()}</th>
                 <td>${exam.exam().year()}</td>
-                <td>${exam.exam().semester().getReadableSemesterGER(exam.exam().year())}</td>
+                <td>${exam.exam().semester().getReadableSemester(exam.exam().year())}</td>
                 <td>${new SimpleDateFormat("dd.MM.yyyy").format(Date.from(exam.exam().uploadDate()))}</td>
                 <td>${exam.professor().firstName() + " " + exam.professor().lastName()}</td>
                 @if(exam.user() != null)
@@ -69,11 +69,11 @@
             </tr>
             </thead>
             <tbody>
-            @for(AdminExamList exam : acceptedExams.stream().filter(ex -> ex.module().moduleID().equals(module.moduleID())).toList())
+            @for(AdminExamListDTO exam : acceptedExams.stream().filter(ex -> ex.module().moduleID().equals(module.moduleID())).toList())
                 <tr>
                     <th scope="row">${exam.module().name()}</th>
                     <td>${exam.exam().year()}</td>
-                    <td>${exam.exam().semester().getReadableSemesterGER(exam.exam().year())}</td>
+                    <td>${exam.exam().semester().getReadableSemester(exam.exam().year())}</td>
                     <td>${new SimpleDateFormat("dd.MM.yyyy").format(Date.from(exam.exam().uploadDate()))}</td>
                     <td>${exam.professor().firstName() + " " + exam.professor().lastName()}</td>
                     @if(exam.user() != null)

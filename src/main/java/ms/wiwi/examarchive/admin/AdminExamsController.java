@@ -81,9 +81,9 @@ public class AdminExamsController {
     }
 
     public void handleGet(Context ctx) {
-        List<AdminExamList> exams = repository.getAllExams();
-        List<AdminExamList> acceptedExams = exams.stream().filter(exam -> exam.exam().status() == ExamStatus.ACCEPTED).toList();
-        List<AdminExamList> pendingExams = exams.stream().filter(exam -> exam.exam().status() == ExamStatus.PENDING).toList();
+        List<AdminExamListDTO> exams = repository.getAllExams();
+        List<AdminExamListDTO> acceptedExams = exams.stream().filter(exam -> exam.exam().status() == ExamStatus.ACCEPTED).toList();
+        List<AdminExamListDTO> pendingExams = exams.stream().filter(exam -> exam.exam().status() == ExamStatus.PENDING).toList();
         List<Module> modules = repository.getAllModules();
         ctx.render("adminExams.jte", Map.of("modules", modules, "acceptedExams", acceptedExams, "pendingExams", pendingExams));
     }
