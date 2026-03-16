@@ -1,6 +1,7 @@
 # UX
 - Handle login errors as information box on index
 # UI
+- Tab completion for prefoessors when adding exams based on module name 
 
 # Backend
 - Logout users globally through sso logout

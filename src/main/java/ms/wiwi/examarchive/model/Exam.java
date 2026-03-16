@@ -7,6 +7,7 @@ import java.time.Instant;
  * @param name name of the exam
  * @param examID random id of the exam
  * @param moduleID module id
+ * @param year year of the exam
  * @param semester semester (Winter or Summer)
  * @param uploadDate date of upload
  * @param fileID id of the pdf file in s3

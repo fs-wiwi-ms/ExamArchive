@@ -30,6 +30,7 @@ public class ExamArchive {
     private final DBManager dbManager;
     private final Repository repository;
     private final OIDCService oidcService;
+    private final S3Service s3Service;
     private final Logger logger = LoggerFactory.getLogger(ExamArchive.class);
 
     public ExamArchive(){
@@ -56,6 +57,17 @@ public class ExamArchive {
         this.dbManager = createDatabaseManager();
         repository = new Repository(dbManager);
         Runtime.getRuntime().addShutdownHook(new Thread(dbManager::close));
+        logger.info("Connecting to S3");
+        s3Service = new S3Service(
+                System.getenv("EXAMARCHIVE_STORAGE_ENDPOINT"),
+                System.getenv("EXAMARCHIVE_STORAGE_ACCESS_KEY"),
+                System.getenv("EXAMARCHIVE_STORAGE_SECRET_KEY"),
+                System.getenv("EXAMARCHIVE_STORAGE_BUCKET"));
+        if(!s3Service.testConnection()){
+            throw new RuntimeException("Could not connect to S3");
+        }
+        s3Service.createBucketIfNotExists();
+        logger.info("S3 connection established");
     }
 
     /**
@@ -79,8 +91,11 @@ public class ExamArchive {
             ShowModuleHandler showModuleHandler = new ShowModuleHandler(repository);
             config.routes.get("/exams/module/{moduleid}", showModuleHandler::handleGet);
             config.routes.post("/exams/module/{moduleid}/filter", showModuleHandler::handleFilter);
+            AddExamController addExamController = new AddExamController(repository, s3Service);
+            config.routes.get("/exams/upload", addExamController::handleGet);
+            config.routes.post("/exams/upload", addExamController::handlePost);
             config.routes.get("/admin/admin", new AdminIndexController());
-            AdminExamsController adminExamsController = new AdminExamsController(repository);
+            AdminExamsController adminExamsController = new AdminExamsController(repository, s3Service);
             config.routes.get("/admin/exams", adminExamsController::handleGet);
             config.routes.post("/admin/exams/deletemodule", adminExamsController::handleRemoveModule);
             config.routes.post("/admin/exams/addmodule", adminExamsController::handleAddModule);
@@ -94,6 +109,7 @@ public class ExamArchive {
             config.routes.get("/admin/settings", new AdminSettingsController());
             config.routes.before("/exams/*", ctx -> {
                 if(ctx.sessionAttribute("user") == null){
+                    ctx.skipRemainingHandlers();
                     if(ctx.header("HX-Request") != null){
                         ctx.header("HX-Redirect", "/login/user");
                         ctx.status(401);
@@ -104,6 +120,7 @@ public class ExamArchive {
             });
             config.routes.before("/admin/*", ctx -> {
                 if(ctx.sessionAttribute("user") == null || ((User)ctx.sessionAttribute("user")).role() != Role.ADMIN){
+                    ctx.skipRemainingHandlers();
                     if(ctx.header("HX-Request") != null){
                         ctx.header("HX-Redirect", "/login/admin");
                         ctx.status(401);

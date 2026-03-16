@@ -28,6 +28,9 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql:12.0.3")
     //AUTH
     implementation("com.nimbusds:oauth2-oidc-sdk:11.33")
+    //FILES
+    implementation("org.apache.pdfbox:pdfbox:3.0.7")
+    implementation("io.minio:minio:8.6.0")
 }
 
 jte {

@@ -39,6 +39,23 @@ services:
       KEYCLOAK_REDIRECT_URI: "http://localhost:1910/auth/callback"
       KEYCLOAK_USER_AFFILIATION: "student@uni-muenster.de"
       KEYCLOAK_ADMIN_AFFILIATION: "3809c3c5-058e-4d4d-ade7-5466d18e819d"
+      EXAMARCHIVE_STORAGE_ENDPOINT: "http://minio-local:9000"
+      EXAMARCHIVE_STORAGE_ACCESS_KEY: "admin"
+      EXAMARCHIVE_STORAGE_SECRET_KEY: "password123"
+      EXAMARCHIVE_STORAGE_BUCKET: "exam-archive"
+  storage:
+    image: minio/minio:latest
+    container_name: minio-local
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: "admin"
+      MINIO_ROOT_PASSWORD: "password123"
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
 
 volumes:
   postgres_data:
+  minio-data:

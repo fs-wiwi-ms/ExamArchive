@@ -2,6 +2,7 @@ package ms.wiwi.examarchive.admin;
 
 import io.javalin.http.Context;
 import ms.wiwi.examarchive.Repository;
+import ms.wiwi.examarchive.S3Service;
 import ms.wiwi.examarchive.model.*;
 import ms.wiwi.examarchive.model.Module;
 import org.slf4j.Logger;
@@ -16,9 +17,11 @@ public class AdminExamsController {
 
     private final Logger logger = LoggerFactory.getLogger(AdminExamsController.class);
     private final Repository repository;
+    private final S3Service s3Service;
 
-    public AdminExamsController(Repository repository) {
+    public AdminExamsController(Repository repository, S3Service s3Service) {
         this.repository = repository;
+        this.s3Service = s3Service;
     }
 
     public void handleAddModule(Context ctx) {
@@ -76,6 +79,12 @@ public class AdminExamsController {
             return;
         }
         logger.info("Deleting Exam: " + body);
+        Exam exam = repository.getExam(body);
+        if(exam == null){
+            ctx.result("Klausur konnte nicht gefunden werden");
+            return;
+        }
+        s3Service.deleteFile(exam.fileID());
         repository.deleteExam(body);
         handleGet(ctx);
     }

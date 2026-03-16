@@ -27,6 +27,10 @@ public class JteLocalizer {
         return localizer.get().localize(key);
     }
 
+    public static String lookup(String key){
+        return localizer.get().lookup(key);
+    }
+
     public static Content get(String key, Object... params) {
         return localizer.get().localize(key, params);
     }

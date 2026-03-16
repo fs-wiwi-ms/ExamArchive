@@ -72,12 +72,12 @@ public class Repository {
      */
     public void addExam(Exam exam){
         try (Connection connection = dbManager.getConnection();
-             PreparedStatement statement = connection.prepareStatement("INSERT INTO exams (examid, name, moduleid, semester, year, uploaddate, fileid, uploaderid, status, professorid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")){
+             PreparedStatement statement = connection.prepareStatement("INSERT INTO exams (examid, name, moduleid, semester, year, uploaddate, fileid, uploaderid, status, professorid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")){
             statement.setString(1, exam.examID());
             statement.setString(2, exam.name());
             statement.setString(3, exam.moduleID());
-            statement.setInt(4, exam.year());
-            statement.setString(5, exam.semester().name());
+            statement.setString(4, exam.semester().name());
+            statement.setInt(5, exam.year());
             statement.setTimestamp(6, Timestamp.from(exam.uploadDate()));
             statement.setString(7, exam.fileID());
             statement.setString(8, exam.uploaderID());
@@ -466,5 +466,43 @@ public class Repository {
             logger.error("Could not get exams and professors for module {}", moduleID, e);
             return List.of();
         }
+    }
+    /**
+     * Gets a professor by first and last name (case-insensitive).
+     * If they do not exist, creates a new one with a generated UUID.
+     * Relies on the prof_name_unique_idx database index.
+     *
+     * @param firstName First name of the professor
+     * @param lastName Last name of the professor
+     * @return The existing or newly created Professor object, or null if an error occurs
+     */
+    public @Nullable Professor getOrCreateProfessor(String firstName, String lastName) {
+        String sql = """
+            INSERT INTO professors (professorid, firstname, lastname)
+            VALUES (gen_random_uuid(), ?, ?)
+            ON CONFLICT (LOWER(firstname), LOWER(lastname))
+            DO UPDATE SET firstname = EXCLUDED.firstname
+            RETURNING professorid, firstname, lastname
+            """;
+
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setString(1, firstName);
+            statement.setString(2, lastName);
+
+            try (ResultSet rs = statement.executeQuery()) {
+                if (rs.next()) {
+                    return new Professor(
+                            rs.getString("professorid"),
+                            rs.getString("firstname"),
+                            rs.getString("lastname")
+                    );
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Could not get or create professor in database", e);
+        }
+        return null;
     }
 }
