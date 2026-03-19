@@ -52,7 +52,7 @@
 </div>
 @endif
 @for(Module module : modules)
-    <details>
+    <details id="module-${module.moduleID()}">
         <summary role="button">${module.name()}</summary>
         <button style="color: red" hx-post="/admin/exams/deletemodule/" value="${module.moduleID()}" name="id" hx-target="#tab-content">Modul löschen</button>
         <table>
@@ -81,7 +81,9 @@
                     @else
                         <td>Nutzer gelöscht</td>
                     @endif
-                    <td>Online</td>
+                    <td>Online <button class="outline"
+                        hx-get="/admin/exams/edit/${exam.exam().examID()}"
+                        hx-target="#module-${module.moduleID()}">Edit</button></td>
                     <td><a href="/exams/view/${exam.exam().examID()}">
                             <button>Ansehen</button>
                         </a></td>

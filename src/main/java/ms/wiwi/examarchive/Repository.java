@@ -551,4 +551,29 @@ public class Repository {
             return List.of();
         }
     }
+
+    /**
+     * Returns a professor based on its id or null if not found
+     *
+     * @param id Professor id
+     */
+    public Professor getProfessor(String id) {
+        try(Connection connection = dbManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement("""
+        SELECT professorid, firstname, lastname FROM professors WHERE professorid = ?
+        """)){
+            statement.setString(1, id);
+            ResultSet resultSet = statement.executeQuery();
+            if(!resultSet.next()){
+                return null;
+            }
+            String professorId = resultSet.getString("professorid");
+            String firstName = resultSet.getString("firstname");
+            String lastName = resultSet.getString("lastname");
+            return new Professor(professorId, firstName, lastName);
+        } catch (SQLException e) {
+            logger.error("Could not get professor from database", e);
+            return null;
+        }
+    }
 }

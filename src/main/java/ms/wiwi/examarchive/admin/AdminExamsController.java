@@ -89,6 +89,68 @@ public class AdminExamsController {
         handleGet(ctx);
     }
 
+    public void handleEditExam(Context ctx){
+        String examID = ctx.pathParam("examid");
+        if(examID.isBlank()){
+            ctx.result("Fehler beim bearbeiten der Klausur");
+            return;
+        }
+        Exam exam = repository.getExam(examID);
+        if(exam == null){
+            ctx.result("Klausur konnte nicht gefunden werden");
+            return;
+        }
+        String moduleID = ctx.formParam("module") != null ? ctx.formParam("module") : exam.moduleID();
+        int year = ctx.formParam("year") != null ? Integer.parseInt(ctx.formParam("year")) : exam.year();
+        Semester semester = ctx.formParam("semester") != null ? Semester.valueOf(ctx.formParam("semester")) : exam.semester();
+        String firstname = ctx.formParam("professor-firstname");
+        String lastname = ctx.formParam("professor-lastname");
+        Professor oldProfessor = repository.getProfessor(exam.professorID());
+        if(firstname == null || lastname == null){
+            firstname = oldProfessor.firstName();
+            lastname = oldProfessor.lastName();
+        }
+        Professor professor = repository.getOrCreateProfessor(firstname, lastname);
+        if(!moduleID.equals(exam.moduleID()) || year != exam.year() || semester != exam.semester() || !professor.professorID().equals(exam.professorID())){
+            Exam newExam = new Exam(exam.name(), exam.examID(), moduleID, year, semester, exam.uploadDate(), exam.fileID(), exam.uploaderID(), ExamStatus.ACCEPTED, professor.professorID());
+            repository.updateExam(newExam);
+            logger.info("Updated Exam: {} ({})", exam.name(), exam.examID());
+        }
+        handleGet(ctx);
+    }
+
+    public void handleDeleteExam(Context ctx){
+        String examID = ctx.pathParam("examid");
+        if(examID.isBlank()){
+            ctx.status(404);
+            return;
+        }
+        Exam exam = repository.getExam(examID);
+        if(exam == null){
+            ctx.status(404);
+            return;
+        }
+        s3Service.deleteFile(exam.fileID());
+        repository.deleteExam(examID);
+        handleGet(ctx);
+    }
+
+    public void handleEditGet(Context ctx){
+        String examID = ctx.pathParam("examid");
+        if(examID.isBlank()){
+            ctx.status(404);
+            return;
+        }
+        Exam exam = repository.getExam(examID);
+        if(exam == null){
+            ctx.status(404);
+            return;
+        }
+        List<Module> modules = repository.getAllModules();
+        Professor professor = repository.getProfessor(exam.professorID());
+        ctx.render("adminEditExam.jte", Map.of("exam", exam, "modules", modules, "professor", professor));
+    }
+
     public void handleGet(Context ctx) {
         List<AdminExamListDTO> exams = repository.getAllExams();
         List<AdminExamListDTO> acceptedExams = exams.stream().filter(exam -> exam.exam().status() == ExamStatus.ACCEPTED).toList();
