@@ -41,7 +41,7 @@
                         <button class="outline" hx-post="/admin/exams/declineexam" value="${exam.exam().examID()}" name="id" hx-target="#tab-content"><small>Ablehnen</small></button>
                     </div>
                 </td>
-                <td><a href="/exams/exam/${exam.exam().examID()}">
+                <td><a href="/exams/view/${exam.exam().examID()}">
                         <button>Ansehen</button>
                     </a>
                 </td>
@@ -82,7 +82,7 @@
                         <td>Nutzer gelöscht</td>
                     @endif
                     <td>Online</td>
-                    <td><a href="/exams/exam/${exam.exam().examID()}">
+                    <td><a href="/exams/view/${exam.exam().examID()}">
                             <button>Ansehen</button>
                         </a></td>
                 </tr>

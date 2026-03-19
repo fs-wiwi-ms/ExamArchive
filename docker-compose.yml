@@ -24,6 +24,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      storage:
+        condition: service_started
     ports:
       - "1910:1910"
     environment:

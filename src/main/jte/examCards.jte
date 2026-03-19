@@ -9,7 +9,7 @@
         <article class="exam-card">
             <header class="flex-responsive">
                 <h3>${exam.exam().semester().getReadableSemester(exam.exam().year())}</h3>
-                <a href="#" role="button" class="outline download-btn full-width-mobile">Download</a>
+                <a href="/exams/view/${exam.exam().examID()}" role="button" class="outline download-btn full-width-mobile">Download</a>
             </header>
 
             <div class="flex-responsive">
