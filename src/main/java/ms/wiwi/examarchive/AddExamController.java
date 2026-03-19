@@ -118,4 +118,54 @@ public class AddExamController {
         }
         ctx.render("addExamSuccess.jte");
     }
+
+    public void handleFormContent(Context ctx) {
+        String moduleId = ctx.queryParam("module");
+        List<Professor> suggestions = List.of();
+        if (moduleId != null && !moduleId.isBlank()) {
+            suggestions = repository.searchProfessorsForModule(moduleId, null, null);
+        }
+        ctx.render("formContent.jte", Map.of(
+                "firstName", "",
+                "lastName", "",
+                "suggestions", suggestions,
+                "locked", false
+        ));
+    }
+
+    public void handleSearchProfessors(Context ctx) {
+        String moduleId = ctx.formParam("module");
+        String firstName = ctx.formParam("firstName");
+        String lastName = ctx.formParam("lastName");
+        List<Professor> suggestions = List.of();
+        if (moduleId != null && !moduleId.isBlank()) {
+            suggestions = repository.searchProfessorsForModule(moduleId, firstName, lastName);
+        }
+        ctx.render("professorSuggestions.jte", Map.of("suggestions", suggestions));
+    }
+
+    public void handleSelectProfessor(Context ctx) {
+        String firstName = ctx.queryParam("firstName");
+        String lastName = ctx.queryParam("lastName");
+        ctx.render("professorSection.jte", Map.of(
+                "firstName", firstName == null ? "" : firstName,
+                "lastName", lastName == null ? "" : lastName,
+                "suggestions", List.of(),
+                "locked", true
+        ));
+    }
+
+    public void handleClearProfessor(Context ctx) {
+        String moduleId = ctx.queryParam("module");
+        List<Professor> suggestions = List.of();
+        if (moduleId != null && !moduleId.isBlank()) {
+            suggestions = repository.searchProfessorsForModule(moduleId, null, null);
+        }
+        ctx.render("professorSection.jte", Map.of(
+                "firstName", "",
+                "lastName", "",
+                "suggestions", suggestions,
+                "locked", false
+        ));
+    }
 }

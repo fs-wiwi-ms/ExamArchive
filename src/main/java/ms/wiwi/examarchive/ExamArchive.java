@@ -94,6 +94,10 @@ public class ExamArchive {
             AddExamController addExamController = new AddExamController(repository, s3Service);
             config.routes.get("/exams/upload", addExamController::handleGet);
             config.routes.post("/exams/upload", addExamController::handlePost);
+            config.routes.get("/exams/upload/form-content", addExamController::handleFormContent);
+            config.routes.post("/exams/upload/professors/search", addExamController::handleSearchProfessors);
+            config.routes.get("/exams/upload/professors/select", addExamController::handleSelectProfessor);
+            config.routes.get("/exams/upload/professors/clear", addExamController::handleClearProfessor);
             config.routes.get("/admin/admin", new AdminIndexController());
             AdminExamsController adminExamsController = new AdminExamsController(repository, s3Service);
             config.routes.get("/admin/exams", adminExamsController::handleGet);

@@ -505,4 +505,50 @@ public class Repository {
         }
         return null;
     }
+
+    /**
+     * Gets all distinct professors who have an exam registered for a given module, optionally filtering by name.
+     *
+     * @param moduleID The module ID to search for
+     * @param firstName Optional first name filter
+     * @param lastName Optional last name filter
+     */
+    public List<Professor> searchProfessorsForModule(String moduleID, String firstName, String lastName) {
+        String query = """
+                SELECT DISTINCT p.professorid, p.firstname, p.lastname
+                FROM professors p
+                JOIN exams e ON p.professorid = e.professorid
+                WHERE e.moduleid = ?
+                AND e.status = 'ACCEPTED'
+                """;
+
+        boolean hasFirst = firstName != null && !firstName.isBlank();
+        boolean hasLast = lastName != null && !lastName.isBlank();
+
+        if (hasFirst) query += " AND p.firstname ILIKE ?";
+        if (hasLast) query += " AND p.lastname ILIKE ?";
+
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            int paramIndex = 1;
+            statement.setString(paramIndex++, moduleID);
+            if (hasFirst) statement.setString(paramIndex++, "%" + firstName + "%");
+            if (hasLast) statement.setString(paramIndex++, "%" + lastName + "%");
+
+            ResultSet resultSet = statement.executeQuery();
+            List<Professor> professors = new ArrayList<>();
+            while (resultSet.next()) {
+                professors.add(new Professor(
+                        resultSet.getString("professorid"),
+                        resultSet.getString("firstname"),
+                        resultSet.getString("lastname")
+                ));
+            }
+            return professors;
+        } catch (SQLException e) {
+            logger.error("Could not search professors for module {}", moduleID, e);
+            return List.of();
+        }
+    }
 }
