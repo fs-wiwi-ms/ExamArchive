@@ -72,11 +72,11 @@
                 </li>
             @endfor
         </ul>
-        <form id="keyword-form">
+        <form id="keyword-form-${module.moduleID()}">
             <div role="group">
                 <input type="text" name="keyword" placeholder="Suchbegriff" required>
                 <button type="button"
-                hx-include="#keyword-form"
+                hx-include="#keyword-form-${module.moduleID()}"
                 hx-target="#tab-content"
                 hx-post="/admin/exams/addkeyword/${module.moduleID()}/">Hinzufügen</button>
             </div>
