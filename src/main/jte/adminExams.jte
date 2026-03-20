@@ -1,4 +1,5 @@
 @import ms.wiwi.examarchive.admin.AdminExamListDTO
+@import ms.wiwi.examarchive.model.KeyWord
 @import ms.wiwi.examarchive.model.Module
 @import java.text.SimpleDateFormat
 @import java.util.Date
@@ -6,6 +7,7 @@
 @param List<AdminExamListDTO> pendingExams
 @param List<AdminExamListDTO> acceptedExams
 @param List<Module> modules
+@param List<KeyWord> keyWords
 @if(!pendingExams.isEmpty())
 <div style="background-color: #dddddd; padding: 10px;">
     <h3>Ausstehende Klausuren</h3>
@@ -55,6 +57,30 @@
     <details id="module-${module.moduleID()}">
         <summary role="button">${module.name()}</summary>
         <button style="color: red" hx-post="/admin/exams/deletemodule/" value="${module.moduleID()}" name="id" hx-target="#tab-content">Modul löschen</button>
+        <p>Suchbegriffe:</p>
+        <ul>
+            @for(KeyWord keyword : keyWords.stream().filter(kw -> kw.moduleID().equals(module.moduleID())).toList())
+                <li id="keyword-${keyword.keyword()}" style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                    <span>${keyword.keyword()}</span>
+                    <button type="button"
+                            class="outline btn-danger"
+                            style="width: auto; padding: 0.15rem 0.5rem; font-size: 0.8rem; margin-bottom: 0;"
+                            hx-post="/admin/exams/deletekeyword/${keyword.moduleID()}/${keyword.keyword()}"
+                            hx-swap="delete"
+                            hx-target="#keyword-${keyword.keyword()}">Löschen
+                    </button>
+                </li>
+            @endfor
+        </ul>
+        <form id="keyword-form">
+            <div role="group">
+                <input type="text" name="keyword" placeholder="Suchbegriff" required>
+                <button type="button"
+                hx-include="#keyword-form"
+                hx-target="#tab-content"
+                hx-post="/admin/exams/addkeyword/${module.moduleID()}/">Hinzufügen</button>
+            </div>
+        </form>
         <table>
             <thead>
             <tr>

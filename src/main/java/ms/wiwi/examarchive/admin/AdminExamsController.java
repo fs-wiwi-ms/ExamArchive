@@ -151,11 +151,36 @@ public class AdminExamsController {
         ctx.render("adminEditExam.jte", Map.of("exam", exam, "modules", modules, "professor", professor));
     }
 
+    public void handleDeleteKeyword(Context ctx){
+        String keyword = ctx.pathParam("keyword");
+        String moduleid = ctx.pathParam("moduleid");
+        if(keyword.isBlank() || moduleid.isBlank()){
+            handleGet(ctx);
+            return;
+        }
+        KeyWord keyWord = new KeyWord(keyword, moduleid);
+        repository.deleteKeyword(keyWord);
+        ctx.status(200);
+    }
+
+    public void handleAddKeyword(Context ctx) {
+        String keyword = ctx.formParam("keyword");
+        String moduleid = ctx.pathParam("moduleid");
+        if(keyword == null || keyword.isBlank() || moduleid.isBlank()){
+            handleGet(ctx);
+            return;
+        }
+        KeyWord keyWord = new KeyWord(keyword, moduleid);
+        repository.addKeyword(keyWord);
+        handleGet(ctx);
+    }
+
     public void handleGet(Context ctx) {
         List<AdminExamListDTO> exams = repository.getAllExams();
         List<AdminExamListDTO> acceptedExams = exams.stream().filter(exam -> exam.exam().status() == ExamStatus.ACCEPTED).toList();
         List<AdminExamListDTO> pendingExams = exams.stream().filter(exam -> exam.exam().status() == ExamStatus.PENDING).toList();
         List<Module> modules = repository.getAllModules();
-        ctx.render("adminExams.jte", Map.of("modules", modules, "acceptedExams", acceptedExams, "pendingExams", pendingExams));
+        List<KeyWord> keyWords = repository.getKeywords();
+        ctx.render("adminExams.jte", Map.of("modules", modules, "acceptedExams", acceptedExams, "pendingExams", pendingExams, "keyWords", keyWords));
     }
 }

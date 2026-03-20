@@ -109,6 +109,8 @@ public class ExamArchive {
             config.routes.post("/admin/exams/editexam/{examid}", adminExamsController::handleEditExam);
             config.routes.post("/admin/exams/deleteexam/{examid}", adminExamsController::handleDeleteExam);
             config.routes.get("/admin/exams/edit/{examid}", adminExamsController::handleEditGet);
+            config.routes.post("/admin/exams/deletekeyword/{moduleid}/{keyword}", adminExamsController::handleDeleteKeyword);
+            config.routes.post("/admin/exams/addkeyword/{moduleid}", adminExamsController::handleAddKeyword);
             AdminUsersController adminUsersController = new AdminUsersController(repository);
             config.routes.get("/admin/users", adminUsersController::handleGet);
             config.routes.post("/admin/users/search", adminUsersController::handleSearch);

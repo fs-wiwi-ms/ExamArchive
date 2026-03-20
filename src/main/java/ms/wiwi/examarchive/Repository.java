@@ -217,7 +217,7 @@ public class Repository {
              PreparedStatement statement = connection.prepareStatement(query);
              ResultSet resultSet = statement.executeQuery()) {
             while (resultSet.next()) {
-                String examId = resultSet.getString("examID");
+                String examId = resultSet.getString("moduleID");
                 String name = resultSet.getString("exam_name");
                 String status = resultSet.getString("status");
                 int year = resultSet.getInt("year");
@@ -574,6 +574,60 @@ public class Repository {
         } catch (SQLException e) {
             logger.error("Could not get professor from database", e);
             return null;
+        }
+    }
+
+    /**
+     * Deletes a keyword from the database.
+     * @param keyword The keyword to delete
+     */
+    public void deleteKeyword(KeyWord keyword) {
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement("DELETE FROM keywords WHERE keyword = ? AND module = ?")) {
+            statement.setString(1, keyword.keyword());
+            statement.setString(2, keyword.moduleID());
+            statement.executeUpdate();
+            refreshModuleSearchView();
+        } catch (SQLException e) {
+            logger.error("Could not delete keyword from database", e);
+        }
+    }
+
+    /**
+     * Adds a keyword to the database. If the keyword already exists, it does nothing.
+     * @param keyWord The keyword to add
+     */
+    public void addKeyword(KeyWord keyWord) {
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement("INSERT INTO keywords (keyword, module) VALUES (?, ?) ON CONFLICT DO NOTHING")) {
+            statement.setString(1, keyWord.keyword());
+            statement.setString(2, keyWord.moduleID());
+            statement.executeUpdate();
+            refreshModuleSearchView();
+        } catch (SQLException e){
+            logger.error("Could not add keyword to database", e);
+        }
+    }
+
+    /**
+     * Gets all keywords from the database.
+     * @return List of KeyWords
+     */
+    public List<KeyWord> getKeywords() {
+        try(Connection connection = dbManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement("SELECT keyword, module FROM keywords")){
+            ResultSet resultSet = statement.executeQuery();
+            List<KeyWord> keywords = new ArrayList<>();
+            while(resultSet.next()){
+                String keyword = resultSet.getString("keyword");
+                String module = resultSet.getString("module");
+                keywords.add(new KeyWord(keyword, module));
+            }
+            refreshModuleSearchView();
+            return keywords;
+        } catch (SQLException e) {
+            logger.error("Could not get keywords from database", e);
+            return List.of();
         }
     }
 }
