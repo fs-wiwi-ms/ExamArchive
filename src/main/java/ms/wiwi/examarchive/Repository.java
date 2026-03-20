@@ -217,7 +217,7 @@ public class Repository {
              PreparedStatement statement = connection.prepareStatement(query);
              ResultSet resultSet = statement.executeQuery()) {
             while (resultSet.next()) {
-                String examId = resultSet.getString("moduleID");
+                String examId = resultSet.getString("examID");
                 String name = resultSet.getString("exam_name");
                 String status = resultSet.getString("status");
                 int year = resultSet.getInt("year");

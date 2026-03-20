@@ -107,9 +107,13 @@
                     @else
                         <td>Nutzer gelöscht</td>
                     @endif
-                    <td>Online <button class="outline"
-                        hx-get="/admin/exams/edit/${exam.exam().examID()}"
-                        hx-target="#module-${module.moduleID()}">Edit</button></td>
+                    <td>Online
+                        <button
+                                class="outline"
+                                hx-get="/admin/exams/edit/${exam.exam().examID()}"
+                                hx-target="#module-${module.moduleID()}">Edit
+                        </button>
+                    </td>
                     <td><a href="/exams/view/${exam.exam().examID()}">
                             <button>Ansehen</button>
                         </a></td>
