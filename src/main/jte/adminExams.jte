@@ -1,4 +1,6 @@
 @import ms.wiwi.examarchive.admin.AdminExamListDTO
+@import ms.wiwi.examarchive.admin.ModuleDegreeDTO
+@import ms.wiwi.examarchive.model.Degree
 @import ms.wiwi.examarchive.model.KeyWord
 @import ms.wiwi.examarchive.model.Module
 @import java.text.SimpleDateFormat
@@ -8,6 +10,8 @@
 @param List<AdminExamListDTO> acceptedExams
 @param List<Module> modules
 @param List<KeyWord> keyWords
+@param List<Degree> degrees
+@param List<ModuleDegreeDTO> degreesAndModules
 @if(!pendingExams.isEmpty())
 <div style="background-color: #dddddd; padding: 10px;">
     <h3>Ausstehende Klausuren</h3>
@@ -57,6 +61,24 @@
     <details id="module-${module.moduleID()}">
         <summary role="button">${module.name()}</summary>
         <button style="color: red" hx-post="/admin/exams/deletemodule/" value="${module.moduleID()}" name="id" hx-target="#tab-content">Modul löschen</button>
+        <p>Studiengänge:</p>
+        @for(Degree degree : degrees)
+            !{
+                boolean isAssigned = degreesAndModules.stream()
+                        .filter(dto -> dto.moduleID().equals(module.moduleID()))
+                        .flatMap(dto -> dto.degrees().stream())
+                        .anyMatch(d -> d.degreeID().equals(degree.degreeID()));
+            }
+            <label>
+                <input type="checkbox"
+                       name="assigned"
+                       value="true"
+                       checked="${isAssigned}"
+                       hx-post="/admin/exams/updatemoduledegree?moduleID=${module.moduleID()}&degreeID=${degree.degreeID()}"
+                       hx-trigger="change">
+                ${degree.name()}
+            </label>
+        @endfor
         <p>Suchbegriffe:</p>
         <ul>
             @for(KeyWord keyword : keyWords.stream().filter(kw -> kw.moduleID().equals(module.moduleID())).toList())
@@ -128,6 +150,26 @@
         <fieldset role="group">
             <input name="name" type="text" placeholder="Modul hinzufügen" pattern="^[a-zA-Z0-9ÄÖÜäöüß]+( [a-zA-Z0-9ÄÖÜäöüß]+)*$"/>
             <input type="submit" value="Hinzufügen" hx-post="/admin/exams/addmodule" hx-target="#tab-content"/>
+        </fieldset>
+    </form>
+    <ul>
+        @for(Degree degree : degrees)
+            <li>
+                <span>${degree.name()}</span>
+                <button type="button"
+                        class="secondary"
+                        hx-post="/admin/exams/deletedegree/${degree.degreeID()}"
+                        hx-target="#tab-content"
+                >Löschen
+                </button>
+            </li>
+        @endfor
+    </ul>
+    <form>
+        <fieldset role="group">
+            <input name="name" type="text" placeholder="Studiengang hinzufügen"
+                   pattern="^[a-zA-Z0-9ÄÖÜäöüß]+( [a-zA-Z0-9ÄÖÜäöüß]+)*$"/>
+            <input type="submit" value="Hinzufügen" hx-post="/admin/exams/adddegree" hx-target="#tab-content"/>
         </fieldset>
     </form>
 </div>

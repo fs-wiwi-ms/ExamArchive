@@ -5,6 +5,7 @@ import ms.wiwi.examarchive.Repository;
 import ms.wiwi.examarchive.S3Service;
 import ms.wiwi.examarchive.model.*;
 import ms.wiwi.examarchive.model.Module;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -175,12 +176,57 @@ public class AdminExamsController {
         handleGet(ctx);
     }
 
+
+    public void handleDeleteDegree(@NotNull Context ctx) {
+        String majorID = ctx.pathParam("degreeid");
+        if(majorID.isBlank()){
+            ctx.status(404);
+            return;
+        }
+        repository.deleteDegree(majorID);
+        handleGet(ctx);
+    }
+
+    public void handleAddDegree(@NotNull Context ctx) {
+        String degreeName = ctx.formParam("name");
+        if(degreeName == null || degreeName.isBlank()){
+            ctx.status(404);
+            return;
+        }
+        Degree degree = new Degree(UUID.randomUUID().toString(), degreeName);
+        repository.addDegree(degree);
+        handleGet(ctx);
+    }
+
+    public void handleModuleDegreeUpdate(Context ctx){
+        String moduleID = ctx.queryParam("moduleID");
+        String degreeID = ctx.queryParam("degreeID");
+        boolean isChecked = ctx.formParam("assigned") != null;
+        logger.info("Updating degree assignment for module {} and degree {}", moduleID, degreeID);
+        if(moduleID == null || moduleID.isBlank() || degreeID == null || degreeID.isBlank()){
+            logger.error("Invalid request");
+            logger.error("ModuleID: " + moduleID);
+            logger.error("DegreeID: " + degreeID);
+            ctx.status(400);
+            return;
+        }
+        if(isChecked){
+            logger.info("Adding degree to module");
+            repository.addDegreeToModule(moduleID, degreeID);
+            return;
+        }
+        logger.info("Removing degree from module");
+        repository.removeDegreeFromModule(moduleID, degreeID);
+    }
+
     public void handleGet(Context ctx) {
         List<AdminExamListDTO> exams = repository.getAllExams();
         List<AdminExamListDTO> acceptedExams = exams.stream().filter(exam -> exam.exam().status() == ExamStatus.ACCEPTED).toList();
         List<AdminExamListDTO> pendingExams = exams.stream().filter(exam -> exam.exam().status() == ExamStatus.PENDING).toList();
         List<Module> modules = repository.getAllModules();
         List<KeyWord> keyWords = repository.getKeywords();
-        ctx.render("adminExams.jte", Map.of("modules", modules, "acceptedExams", acceptedExams, "pendingExams", pendingExams, "keyWords", keyWords));
+        List<Degree> degrees = repository.getDegrees();
+        List<ModuleDegreeDTO> degreesAndModules = repository.getDegreesAndModules();
+        ctx.render("adminExams.jte", Map.of("modules", modules, "acceptedExams", acceptedExams, "pendingExams", pendingExams, "keyWords", keyWords, "degrees", degrees, "degreesAndModules", degreesAndModules));
     }
 }

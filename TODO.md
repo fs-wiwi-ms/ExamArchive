@@ -3,7 +3,7 @@
 # UI
 
 # Backend
-- Logout users globally through sso logout
-- Add a major to each module to filter modules by major (Maybe as filter crumps)
+- Add a degree to each module to filter modules by degree (Maybe as filter crumps)
 - Show top downloaded Exams at start of searching page
 - Clean up database when deleting exams
+- Delete Users for DSGVO

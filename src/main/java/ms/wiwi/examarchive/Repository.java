@@ -1,6 +1,7 @@
 package ms.wiwi.examarchive;
 
 import ms.wiwi.examarchive.admin.AdminExamListDTO;
+import ms.wiwi.examarchive.admin.ModuleDegreeDTO;
 import ms.wiwi.examarchive.model.*;
 import ms.wiwi.examarchive.model.Module;
 import org.jetbrains.annotations.Nullable;
@@ -670,6 +671,92 @@ public class Repository {
             statement2.executeUpdate();
         } catch (SQLException e){
             logger.error("Could not update motd text in database", e);
+        }
+    }
+
+    public void addDegree(Degree degree) {
+        try (Connection connection = dbManager.getConnection(); PreparedStatement statement = connection.prepareStatement("INSERT INTO degrees (id, name) VALUES (?, ?)")) {
+            statement.setString(1, degree.degreeID());
+            statement.setString(2, degree.name());
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Could not add degree to database", e);
+        }
+    }
+
+    public void deleteDegree(String id) {
+        try (Connection connection = dbManager.getConnection(); PreparedStatement statement = connection.prepareStatement("DELETE FROM degrees WHERE id = ?")) {
+            statement.setString(1, id);
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Could not delete degree from database", e);
+        }
+    }
+
+    public List<Degree> getDegrees() {
+        try (Connection connection = dbManager.getConnection(); PreparedStatement statement = connection.prepareStatement("SELECT id, name FROM degrees")) {
+            ResultSet resultSet = statement.executeQuery();
+            List<Degree> degrees = new ArrayList<>();
+            while (resultSet.next()) {
+                String id = resultSet.getString("id");
+                String name = resultSet.getString("name");
+                degrees.add(new Degree(id, name));
+            }
+            return degrees;
+
+        } catch (SQLException e) {
+            logger.error("Could not get degrees from database", e);
+            return List.of();
+        }
+    }
+
+    public List<ModuleDegreeDTO> getDegreesAndModules() {
+        try (Connection connection = dbManager.getConnection(); PreparedStatement statement = connection.prepareStatement("""
+                SELECT modules.moduleid AS module_id, degrees.id AS degree_id, degrees.name AS degree_name
+                FROM module_degrees
+                LEFT JOIN degrees ON module_degrees.degree_id = degrees.id
+                LEFT JOIN modules ON module_degrees.module_id = modules.moduleid
+                """); ResultSet resultSet = statement.executeQuery()) {
+            List<ModuleDegreeDTO> moduleDegrees = new ArrayList<>();
+            while (resultSet.next()) {
+                String moduleId = resultSet.getString("module_id");
+                String degreeId = resultSet.getString("degree_id");
+                String degreeName = resultSet.getString("degree_name");
+                ModuleDegreeDTO dto = moduleDegrees.stream().filter(m -> m.moduleID().equals(moduleId)).findFirst().orElse(null);
+                if (dto == null) {
+                    dto = new ModuleDegreeDTO(moduleId, new ArrayList<>());
+                    moduleDegrees.add(dto);
+                }
+                dto.degrees().add(new Degree(degreeId, degreeName));
+            }
+            return moduleDegrees;
+        } catch (SQLException e) {
+            logger.error("Could not get degrees and modules from database", e);
+            return List.of();
+        }
+
+    }
+
+    public void addDegreeToModule(String moduleID, String degreeID) {
+        try(Connection connection = dbManager.getConnection();
+        PreparedStatement statement = connection.prepareStatement("INSERT INTO module_degrees (module_id, degree_id) VALUES (?, ?)")) {
+            statement.setString(1, moduleID);
+            statement.setString(2, degreeID);
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Could not add degree to module in database", e);
+        }
+    }
+
+
+    public void removeDegreeFromModule(String moduleID, String degreeID) {
+        try(Connection connection = dbManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement("DELETE FROM module_degrees WHERE module_id = ? AND degree_id = ?")) {
+            statement.setString(1, moduleID);
+            statement.setString(2, degreeID);
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Could not remove degree to module in database", e);
         }
     }
 }
