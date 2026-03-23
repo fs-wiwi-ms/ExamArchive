@@ -53,6 +53,7 @@
 </head>
 <body>
 @template.header()
+@template.motd()
 
 <main id="main-content">
     <div class="container">

@@ -32,7 +32,7 @@
     <div role="group">
         <button hx-get="/admin/exams" hx-target="#tab-content">Klausuren</button>
         <button hx-get="/admin/users" hx-target="#tab-content">Accounts</button>
-        <button hx-get="/admin/others" hx-target="#tab-content">Sonstiges</button>
+        <button hx-get="/admin/settings" hx-target="#tab-content">Sonstiges</button>
     </div>
     <hr>
     <div id="tab-content" >

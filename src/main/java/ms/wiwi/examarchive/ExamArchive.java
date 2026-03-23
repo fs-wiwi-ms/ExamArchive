@@ -31,6 +31,7 @@ public class ExamArchive {
     private final Repository repository;
     private final OIDCService oidcService;
     private final S3Service s3Service;
+    private final MotdService motdService;
     private final Logger logger = LoggerFactory.getLogger(ExamArchive.class);
 
     public ExamArchive(){
@@ -68,6 +69,7 @@ public class ExamArchive {
         }
         s3Service.createBucketIfNotExists();
         logger.info("S3 connection established");
+        motdService = new MotdService(repository);
     }
 
     /**
@@ -116,7 +118,9 @@ public class ExamArchive {
             config.routes.post("/admin/users/search", adminUsersController::handleSearch);
             config.routes.post("/admin/users/block", adminUsersController::handleBlock);
             config.routes.post("/admin/users/unblock", adminUsersController::handleUnblock);
-            config.routes.get("/admin/settings", new AdminSettingsController());
+            AdminSettingsController adminSettingsController = new AdminSettingsController(motdService);
+            config.routes.get("/admin/settings", adminSettingsController::handleGet);
+            config.routes.post("/admin/updatemotd", adminSettingsController::handleUpdateMotdPost);
             config.routes.before("/exams/*", ctx -> {
                 if(ctx.sessionAttribute("user") == null){
                     ctx.skipRemainingHandlers();

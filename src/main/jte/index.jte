@@ -26,6 +26,7 @@
 </head>
 <body>
 @template.header()
+@template.motd()
 <main id="main-content">
     <div class="container">
         <article style="max-width: 500px; margin: 0 auto;">

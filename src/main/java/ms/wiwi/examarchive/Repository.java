@@ -630,4 +630,46 @@ public class Repository {
             return List.of();
         }
     }
+
+    /**
+     * Gets the MOTD text from the database.
+     * @return motd record
+     */
+    public Motd getMotdText() {
+        try (Connection connection = dbManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement("SELECT message, expires_at FROM motd LIMIT 1")){
+            ResultSet resultSet = statement.executeQuery();
+            if(!resultSet.next()){
+                return null;
+            }
+            String message = resultSet.getString("message");
+            Instant expiresAt = resultSet.getTimestamp("expires_at").toInstant();
+            Motd motd = new Motd(message, expiresAt);
+            if(motd.isExpired()){
+                return null;
+            }
+            return motd;
+        } catch (SQLException e) {
+            logger.error("Could not get motd text from database", e);
+            return null;
+        }
+    }
+
+
+    /**
+     * Updates the motd in the database by overwriting it
+     * @param motd motd to update
+     */
+    public void updateMotd(Motd motd) {
+        try(Connection connection = dbManager.getConnection();
+            PreparedStatement statement1 = connection.prepareStatement("DELETE FROM motd");
+            PreparedStatement statement2 = connection.prepareStatement("INSERT INTO motd (message, expires_at) VALUES (?, ?)")){
+            statement1.executeUpdate();
+            statement2.setString(1, motd.text());
+            statement2.setTimestamp(2, Timestamp.from(motd.expires()));
+            statement2.executeUpdate();
+        } catch (SQLException e){
+            logger.error("Could not update motd text in database", e);
+        }
+    }
 }
