@@ -369,20 +369,37 @@ public class Repository {
      * Matches against a concatenation of module name, keywords, and professor names.
      *
      * @param searchQuery The string to search for
+     * @param degreeIds Optional list of degree IDs to filter modules by. If provided, only modules with a matching degree mapping will be returned.
      * @return List of up to 10 matching modules
      */
-    public List<ModuleSearchResultDTO> searchModules(String searchQuery) {
+    public List<ModuleSearchResultDTO> searchModules(String searchQuery, List<String> degreeIds) {
         List<ModuleSearchResultDTO> matchingModules = new ArrayList<>();
+        boolean hasDegrees = degreeIds != null && !degreeIds.isEmpty();
+        String query = """
+                 SELECT m.module_name, m.moduleid, m.professors_array, m.exam_count
+                 FROM module_search_view m
+                 WHERE ? <% m.search_text
+                 """;
+        if (hasDegrees) {
+            query += """
+                 AND EXISTS (
+                     SELECT 1 FROM module_degrees md
+                     WHERE md.module_id = m.moduleid
+                       AND md.degree_id = ANY(?)
+                 )
+                 """;
+        }
+        query += " ORDER BY word_similarity(?, m.search_text) DESC LIMIT 10";
         try (Connection connection = dbManager.getConnection();
-             PreparedStatement statement = connection.prepareStatement("""
-                         SELECT module_name, moduleid, professors_array, exam_count
-                         FROM module_search_view
-                         WHERE ? <% search_text
-                         ORDER BY word_similarity(?, search_text) DESC
-                         LIMIT 10
-                     """)) {
-            statement.setString(1, searchQuery);
-            statement.setString(2, searchQuery);
+             PreparedStatement statement = connection.prepareStatement(query)) {
+            int paramIndex = 1;
+            statement.setString(paramIndex++, searchQuery);
+
+            if (hasDegrees) {
+                Array degreeArray = connection.createArrayOf("varchar", degreeIds.toArray());
+                statement.setArray(paramIndex++, degreeArray);
+            }
+            statement.setString(paramIndex++, searchQuery);
             try (ResultSet rs = statement.executeQuery()) {
                 while (rs.next()) {
                     Array profArray = rs.getArray("professors_array");

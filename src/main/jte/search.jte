@@ -1,4 +1,9 @@
 @import ms.wiwi.examarchive.JteLocalizer
+@import ms.wiwi.examarchive.model.Degree
+@import java.util.List
+
+@param List<Degree> degrees
+
 <!Doctype html>
 <html lang="de" data-theme="light">
 <head>
@@ -49,6 +54,25 @@
         .filters-container {
             margin-bottom: 2rem;
         }
+
+        .search-container {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .search-container > input[type="search"] {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        details.dropdown.filter-dropdown ul {
+            right: 0;
+            left: auto;
+            min-width: max-content;
+            max-width: calc(100vw - 2rem);
+            z-index: 10;
+        }
     </style>
 </head>
 <body>
@@ -65,23 +89,38 @@
             </a>
         </div>
 
-        <form class="search-form">
-            <input type="search"
-                   placeholder="${JteLocalizer.get("search.placeholder")}"
-                   aria-placeholder="${JteLocalizer.get("search.placeholder")}"
-                   name="search"
-                   autocomplete="off"
-                   hx-post="/exams/search"
-                   hx-trigger="input changed delay:300ms, keyup[key=='Enter'], load"
-                   hx-target="#search-results"
-                   hx-include="[name='search']">
+        <form class="search-form"
+              hx-post="/exams/search"
+              hx-target="#search-results"
+              hx-trigger="input delay:300ms from:[name='search'], change from:[name='degreeFilter']">
+
+            <div class="search-container">
+                <input type="search"
+                       placeholder="${JteLocalizer.get("search.placeholder")}"
+                       aria-placeholder="${JteLocalizer.get("search.placeholder")}"
+                       name="search"
+                       autocomplete="off">
+
+                <details class="dropdown filter-dropdown">
+                    <summary role="button" class="secondary outline">Filter</summary>
+                    <ul>
+                        @for(Degree degree : degrees)
+                            <li>
+                                <label>
+                                    <input type="checkbox" name="degreeFilter" value="${degree.degreeID()}"/>
+                                    ${degree.name()}
+                                </label>
+                            </li>
+                        @endfor
+                    </ul>
+                </details>
+            </div>
         </form>
 
         <div id="filters" class="filters-container">
         </div>
 
         <div id="search-results">
-
         </div>
 
     </div>

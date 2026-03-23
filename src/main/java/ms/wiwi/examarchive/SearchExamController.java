@@ -16,20 +16,21 @@ public class SearchExamController implements Handler {
         this.repository = repository;
     }
 
-
     @Override
-    public void handle(@NotNull Context ctx) throws Exception {
+    public void handle(@NotNull Context ctx) {
         if(ctx.method() == HandlerType.GET){
-            ctx.render("search.jte");
+            ctx.render("search.jte", Map.of("degrees", repository.getDegrees()));
             return;
         }
         if(ctx.method() != HandlerType.POST){
             return;
         }
-        if(ctx.formParam("search") == null || ctx.formParam("search").isBlank()){
+        String searchQuery = ctx.formParam("search");
+        if(searchQuery == null || searchQuery.isBlank()){
             return;
         }
-        List<ModuleSearchResultDTO> resultList = repository.searchModules(ctx.formParam("search"));
+        List<String> degreeIds = ctx.formParams("degreeFilter");
+        List<ModuleSearchResultDTO> resultList = repository.searchModules(searchQuery, degreeIds);
         ctx.render("searchResult.jte", Map.of("results", resultList));
     }
 }
