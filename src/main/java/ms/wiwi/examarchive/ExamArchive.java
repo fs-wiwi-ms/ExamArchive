@@ -121,6 +121,7 @@ public class ExamArchive {
             AdminSettingsController adminSettingsController = new AdminSettingsController(motdService);
             config.routes.get("/admin/settings", adminSettingsController::handleGet);
             config.routes.post("/admin/updatemotd", adminSettingsController::handleUpdateMotdPost);
+            config.routes.get("/dropdown", new HeaderController());
             config.routes.before("/exams/*", ctx -> {
                 if(ctx.sessionAttribute("user") == null){
                     ctx.skipRemainingHandlers();
