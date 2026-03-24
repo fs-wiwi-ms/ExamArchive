@@ -1,8 +1,10 @@
-package ms.wiwi.examarchive;
+package ms.wiwi.examarchive.controller;
 
 import io.javalin.http.Context;
 import io.javalin.http.Handler;
 import io.javalin.http.HandlerType;
+import ms.wiwi.examarchive.ModuleSearchResultDTO;
+import ms.wiwi.examarchive.Repository;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;

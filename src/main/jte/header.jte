@@ -1,4 +1,4 @@
-@import ms.wiwi.examarchive.JteLocalizer
+@import ms.wiwi.examarchive.services.JteLocalizer
 <style>
     #header {
         background-color: #10375B;

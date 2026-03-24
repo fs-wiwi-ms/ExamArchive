@@ -1,4 +1,4 @@
-@import ms.wiwi.examarchive.JteLocalizer
+@import ms.wiwi.examarchive.services.JteLocalizer
 @import ms.wiwi.examarchive.ProfessorExamDTO
 @import java.text.SimpleDateFormat
 @import java.util.Date

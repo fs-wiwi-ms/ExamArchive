@@ -1,7 +1,7 @@
 @import ms.wiwi.examarchive.ProfessorExamDTO
 @import ms.wiwi.examarchive.model.Motd
 @import java.util.List
-@param Motd motd = ms.wiwi.examarchive.MotdService.getMotd()
+@param Motd motd = ms.wiwi.examarchive.services.MotdService.getMotd()
 @param List<ProfessorExamDTO> topExams
 @param int weeklyDownloads
 @param int monthlyDownloads

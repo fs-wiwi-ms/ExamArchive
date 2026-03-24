@@ -4,6 +4,7 @@ import ms.wiwi.examarchive.admin.AdminExamListDTO;
 import ms.wiwi.examarchive.admin.ModuleDegreeDTO;
 import ms.wiwi.examarchive.model.*;
 import ms.wiwi.examarchive.model.Module;
+import ms.wiwi.examarchive.services.DatabaseService;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,12 +18,12 @@ import java.util.concurrent.CompletableFuture;
 
 public class Repository {
 
-    private final DBManager dbManager;
+    private final DatabaseService dbManager;
     Logger logger = LoggerFactory.getLogger(Repository.class);
     private List<ModuleSearchResultDTO> topModulesCache = new ArrayList<>();
     private Instant lastTopModulesCacheUpdate = Instant.MIN;
 
-    public Repository(DBManager dbManager){
+    public Repository(DatabaseService dbManager){
         this.dbManager = dbManager;
     }
 

@@ -2,7 +2,7 @@ package ms.wiwi.examarchive.admin;
 
 import io.javalin.http.Context;
 import ms.wiwi.examarchive.Repository;
-import ms.wiwi.examarchive.S3Service;
+import ms.wiwi.examarchive.services.S3Service;
 import ms.wiwi.examarchive.model.*;
 import ms.wiwi.examarchive.model.Module;
 import org.jetbrains.annotations.NotNull;

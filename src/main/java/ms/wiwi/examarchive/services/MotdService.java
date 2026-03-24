@@ -1,5 +1,6 @@
-package ms.wiwi.examarchive;
+package ms.wiwi.examarchive.services;
 
+import ms.wiwi.examarchive.Repository;
 import ms.wiwi.examarchive.model.Motd;
 
 public class MotdService {

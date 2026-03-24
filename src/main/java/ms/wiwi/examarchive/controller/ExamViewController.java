@@ -1,11 +1,13 @@
-package ms.wiwi.examarchive;
+package ms.wiwi.examarchive.controller;
 
 import io.javalin.http.Context;
 import io.javalin.http.Handler;
+import ms.wiwi.examarchive.Repository;
 import ms.wiwi.examarchive.model.Exam;
 import ms.wiwi.examarchive.model.ExamStatus;
 import ms.wiwi.examarchive.model.Role;
 import ms.wiwi.examarchive.model.User;
+import ms.wiwi.examarchive.services.S3Service;
 
 public class ExamViewController implements Handler {
 

@@ -1,4 +1,4 @@
-@import ms.wiwi.examarchive.JteLocalizer
+@import ms.wiwi.examarchive.services.JteLocalizer
 @import ms.wiwi.examarchive.model.Semester
 @import ms.wiwi.examarchive.model.Professor
 @import java.time.Year

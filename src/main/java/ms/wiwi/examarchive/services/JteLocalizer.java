@@ -1,4 +1,4 @@
-package ms.wiwi.examarchive;
+package ms.wiwi.examarchive.services;
 
 import gg.jte.Content;
 import gg.jte.support.LocalizationSupport;

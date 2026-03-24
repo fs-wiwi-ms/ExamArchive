@@ -1,4 +1,4 @@
-@import ms.wiwi.examarchive.JteLocalizer
+@import ms.wiwi.examarchive.services.JteLocalizer
 <!Doctype html>
 <html lang="de" data-theme="light">
 <head>

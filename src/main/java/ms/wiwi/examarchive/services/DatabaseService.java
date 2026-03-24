@@ -1,4 +1,4 @@
-package ms.wiwi.examarchive;
+package ms.wiwi.examarchive.services;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -10,10 +10,10 @@ import org.slf4j.LoggerFactory;
 import java.sql.Connection;
 import java.sql.SQLException;
 
-public class DBManager {
+public class DatabaseService {
 
     private final HikariDataSource dataSource;
-    private final Logger logger = LoggerFactory.getLogger(DBManager.class);
+    private final Logger logger = LoggerFactory.getLogger(DatabaseService.class);
 
     /**
      * Initializes a new database connection
@@ -23,7 +23,7 @@ public class DBManager {
      * @param database Postgresql database
      * @param port Postgresql port
      */
-    public DBManager(String hostname, String username, String password, String database, int port) {
+    public DatabaseService(String hostname, String username, String password, String database, int port) {
         if(hostname == null || username == null || password == null || database == null){
             throw new RuntimeException("Missing database credentials");
         }

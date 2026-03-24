@@ -1,4 +1,4 @@
-@import ms.wiwi.examarchive.JteLocalizer
+@import ms.wiwi.examarchive.services.JteLocalizer
 
 @param String message
 @param int status = 404

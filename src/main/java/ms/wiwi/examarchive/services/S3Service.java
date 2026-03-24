@@ -1,7 +1,6 @@
-package ms.wiwi.examarchive;
+package ms.wiwi.examarchive.services;
 
 import io.minio.*;
-import io.minio.errors.*;
 import io.minio.http.Method;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.io.RandomAccessReadBufferedFile;

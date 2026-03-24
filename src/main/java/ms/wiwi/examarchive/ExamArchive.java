@@ -10,8 +10,13 @@ import ms.wiwi.examarchive.admin.AdminSettingsController;
 import ms.wiwi.examarchive.admin.AdminUsersController;
 import ms.wiwi.examarchive.auth.AuthController;
 import ms.wiwi.examarchive.auth.OIDCService;
+import ms.wiwi.examarchive.controller.*;
 import ms.wiwi.examarchive.model.Role;
 import ms.wiwi.examarchive.model.User;
+import ms.wiwi.examarchive.services.DatabaseService;
+import ms.wiwi.examarchive.services.JteLocalizer;
+import ms.wiwi.examarchive.services.MotdService;
+import ms.wiwi.examarchive.services.S3Service;
 import org.eclipse.jetty.http.HttpCookie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +36,7 @@ public class ExamArchive {
     }
 
     private final boolean developmentMode;
-    private final DBManager dbManager;
+    private final DatabaseService dbManager;
     private final Repository repository;
     private final OIDCService oidcService;
     private final S3Service s3Service;
@@ -93,7 +98,7 @@ public class ExamArchive {
             SearchExamController searchExamController = new SearchExamController(repository);
             config.routes.get("/exams/search", searchExamController);
             config.routes.post("/exams/search", searchExamController);
-            ShowModuleHandler showModuleHandler = new ShowModuleHandler(repository);
+            ShowModuleController showModuleHandler = new ShowModuleController(repository);
             config.routes.get("/exams/module/{moduleid}", showModuleHandler::handleGet);
             config.routes.post("/exams/module/{moduleid}/filter", showModuleHandler::handleFilter);
             AddExamController addExamController = new AddExamController(repository, s3Service);
@@ -195,13 +200,13 @@ public class ExamArchive {
      * Creates an active instance of the database manager and checks if the connection is valid.
      * @return Database manager
      */
-    private DBManager createDatabaseManager(){
+    private DatabaseService createDatabaseManager(){
         String hostname = System.getenv("EXAMARCHIVE_DB_HOSTNAME");
         String username = System.getenv("EXAMARCHIVE_DB_USERNAME");
         String password = System.getenv("EXAMARCHIVE_DB_PASSWORD");
         String database = System.getenv("EXAMARCHIVE_DB_DATABASE");
         int port = Integer.parseInt(System.getenv("EXAMARCHIVE_DB_PORT"));
-        DBManager dbManager = new DBManager(hostname, username, password, database, port);
+        DatabaseService dbManager = new DatabaseService(hostname, username, password, database, port);
         if(dbManager.getConnection() == null){
             throw new RuntimeException("Could not establish database connection");
         }

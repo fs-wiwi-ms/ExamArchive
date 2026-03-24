@@ -1,4 +1,4 @@
-@import ms.wiwi.examarchive.JteLocalizer
+@import ms.wiwi.examarchive.services.JteLocalizer
 @param boolean loggedIn
 @param String lang
 <summary>☰</summary>

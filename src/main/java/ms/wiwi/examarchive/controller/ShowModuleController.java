@@ -1,6 +1,8 @@
-package ms.wiwi.examarchive;
+package ms.wiwi.examarchive.controller;
 
 import io.javalin.http.Context;
+import ms.wiwi.examarchive.ProfessorExamDTO;
+import ms.wiwi.examarchive.Repository;
 import ms.wiwi.examarchive.model.Module;
 import ms.wiwi.examarchive.model.Professor;
 import org.jetbrains.annotations.NotNull;
@@ -8,11 +10,11 @@ import org.jetbrains.annotations.NotNull;
 import java.util.List;
 import java.util.Map;
 
-public class ShowModuleHandler {
+public class ShowModuleController {
 
     private final Repository repository;
 
-    public ShowModuleHandler(Repository repository) {
+    public ShowModuleController(Repository repository) {
         this.repository = repository;
     }
 

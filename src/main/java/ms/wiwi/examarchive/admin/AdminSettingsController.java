@@ -1,7 +1,7 @@
 package ms.wiwi.examarchive.admin;
 
 import io.javalin.http.Context;
-import ms.wiwi.examarchive.MotdService;
+import ms.wiwi.examarchive.services.MotdService;
 import ms.wiwi.examarchive.ProfessorExamDTO;
 import ms.wiwi.examarchive.Repository;
 import ms.wiwi.examarchive.model.Motd;

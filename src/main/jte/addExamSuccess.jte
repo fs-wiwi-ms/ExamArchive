@@ -1,4 +1,4 @@
-@import ms.wiwi.examarchive.JteLocalizer
+@import ms.wiwi.examarchive.services.JteLocalizer
 
 <article style="border-color: var(--pico-ins-color);">
     <header style="background-color: var(--pico-ins-color); color: white;">

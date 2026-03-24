@@ -1,4 +1,4 @@
-package ms.wiwi.examarchive;
+package ms.wiwi.examarchive.controller;
 
 import io.javalin.http.Context;
 import io.javalin.http.Handler;

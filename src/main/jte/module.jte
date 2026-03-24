@@ -1,4 +1,4 @@
-@import ms.wiwi.examarchive.JteLocalizer
+@import ms.wiwi.examarchive.services.JteLocalizer
 @import ms.wiwi.examarchive.ProfessorExamDTO
 @import ms.wiwi.examarchive.model.Module
 @import ms.wiwi.examarchive.model.Professor
