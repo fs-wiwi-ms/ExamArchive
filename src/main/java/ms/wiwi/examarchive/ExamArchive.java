@@ -153,6 +153,14 @@ public class ExamArchive {
                 if (acceptLanguage != null && acceptLanguage.toLowerCase().startsWith("en")) {
                     locale = Locale.ENGLISH;
                 }
+                if(ctx.cookie("lang") != null){
+                    if(ctx.cookie("lang").equals("german")){
+                        locale = Locale.GERMAN;
+                    }
+                    if(ctx.cookie("lang").equals("english")){
+                        locale = Locale.ENGLISH;
+                    }
+                }
                 JteLocalizer.setLocale(locale);
             });
             if(!developmentMode){
