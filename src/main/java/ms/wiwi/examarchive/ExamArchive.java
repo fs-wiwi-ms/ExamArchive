@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Locale;
+import java.util.Map;
 
 public class ExamArchive {
 
@@ -82,7 +83,6 @@ public class ExamArchive {
         Javalin javalin = Javalin.create(config -> {
             config.fileRenderer(new JavalinJte(TemplateEngine.createPrecompiled(ContentType.Html)));
             config.routes.get("/", ctx -> ctx.render("index.jte"));
-            config.routes.after(_ -> JteLocalizer.clear());
             config.staticFiles.add("/public");
             config.routes.get("/login/{type}", authController::login);
             config.routes.get("/auth/callback", authController::callback);
@@ -162,6 +162,19 @@ public class ExamArchive {
                     handler.getSessionHandler().setSameSite(HttpCookie.SameSite.LAX);
                 });
             }
+            config.routes.after("/*", ctx -> {
+                if(ctx.statusCode() < 400 || ctx.header("HX-Request") != null){
+                    return;
+                }
+                String message = ctx.body();
+                if(!message.isBlank()){
+                    ctx.render("error.jte", Map.of("status", ctx.statusCode()));
+                    return;
+                }
+                message = JteLocalizer.lookup("error.notfound");
+                ctx.render("error.jte", Map.of("status", ctx.statusCode(), "message", message));
+            });
+            config.routes.after(_ -> JteLocalizer.clear());
         });
         javalin.start(1910);
     }
