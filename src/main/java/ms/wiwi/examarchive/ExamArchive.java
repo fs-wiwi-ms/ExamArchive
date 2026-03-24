@@ -20,6 +20,9 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class ExamArchive {
 
@@ -184,6 +187,7 @@ public class ExamArchive {
             });
             config.routes.after(_ -> JteLocalizer.clear());
         });
+        scheduleUserDeletion();
         javalin.start(1910);
     }
 
@@ -207,5 +211,13 @@ public class ExamArchive {
             }
         } catch (SQLException _) {}
         return dbManager;
+    }
+
+    /**
+     * Deletes users from the database that have not logged in for three years.
+     */
+    private void scheduleUserDeletion() {
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        scheduler.scheduleAtFixedRate(repository::deleteOldAccounts, 0, 1, TimeUnit.DAYS);
     }
 }

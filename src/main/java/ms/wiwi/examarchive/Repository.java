@@ -973,4 +973,18 @@ public class Repository {
         }
         return 0;
     }
+
+
+    /**
+     * Deletes old accounts, older than three years
+     */
+    public void deleteOldAccounts() {
+        try(Connection connection = dbManager.getConnection();
+        PreparedStatement statement = connection.prepareStatement("DELETE FROM users WHERE lastlogin < NOW() - INTERVAL '3 years'")) {
+            int result = statement.executeUpdate();
+            logger.info("Deleted {} old accounts", result);
+        } catch (SQLException e) {
+            logger.error("Could not delete old accounts", e);
+        }
+    }
 }
