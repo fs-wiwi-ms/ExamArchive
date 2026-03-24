@@ -31,6 +31,7 @@
             <li><a href="https://fachschaft-wiwi.ms/imprint/" class="contrast">${JteLocalizer.get("footer.legal")}</a></li>
             <li><a href="https://fachschaft-wiwi.ms/privacy/" class="contrast">${JteLocalizer.get("footer.privacy")}</a></li>
             <li><a href="https://fachschaft-wiwi.ms/" class="contrast">${JteLocalizer.get("footer.website")}</a></li>
+            <li><a href="https://github.com/fs-wiwi-ms/ExamArchive/" class="contrast">${JteLocalizer.get("footer.code")}</a></li>
         </ul>
     </nav>
 </footer>
