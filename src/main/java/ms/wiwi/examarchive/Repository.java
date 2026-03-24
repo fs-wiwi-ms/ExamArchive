@@ -193,7 +193,20 @@ public class Repository {
      */
     public void deleteExam(String id) {
         try (Connection connection = dbManager.getConnection();
-             PreparedStatement statement = connection.prepareStatement("DELETE FROM exams WHERE examid = ?")) {
+             PreparedStatement statement = connection.prepareStatement("""
+                     WITH deleted_exam AS (
+                     DELETE FROM exams
+                     WHERE examid = ?
+                     RETURNING professorid
+                     )
+                     DELETE FROM professors
+                     WHERE professorid IN (SELECT professorid FROM deleted_exam)
+                     AND (
+                     SELECT COUNT(*)\s
+                     FROM exams\s
+                     WHERE exams.professorid = professors.professorid
+                     ) <= 1;
+                     """)) {
             statement.setString(1, id);
             statement.executeUpdate();
             refreshModuleSearchView();
