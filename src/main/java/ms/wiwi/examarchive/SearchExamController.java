@@ -26,7 +26,9 @@ public class SearchExamController implements Handler {
             return;
         }
         String searchQuery = ctx.formParam("search");
-        if(searchQuery == null || searchQuery.isBlank()){
+        if(searchQuery == null || searchQuery.isBlank() || searchQuery.length() < 3){
+            List<ModuleSearchResultDTO> resultList = repository.getMostDownloadedModules();
+            ctx.render("searchResult.jte", Map.of("results", resultList));
             return;
         }
         List<String> degreeIds = ctx.formParams("degreeFilter");

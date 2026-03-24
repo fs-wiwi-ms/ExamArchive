@@ -121,7 +121,7 @@ public class ExamArchive {
             config.routes.post("/admin/users/search", adminUsersController::handleSearch);
             config.routes.post("/admin/users/block", adminUsersController::handleBlock);
             config.routes.post("/admin/users/unblock", adminUsersController::handleUnblock);
-            AdminSettingsController adminSettingsController = new AdminSettingsController(motdService);
+            AdminSettingsController adminSettingsController = new AdminSettingsController(motdService, repository);
             config.routes.get("/admin/settings", adminSettingsController::handleGet);
             config.routes.post("/admin/updatemotd", adminSettingsController::handleUpdateMotdPost);
             config.routes.get("/dropdown", new HeaderController());

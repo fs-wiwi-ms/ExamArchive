@@ -1,5 +1,12 @@
+@import ms.wiwi.examarchive.ProfessorExamDTO
 @import ms.wiwi.examarchive.model.Motd
+@import java.util.List
 @param Motd motd = ms.wiwi.examarchive.MotdService.getMotd()
+@param List<ProfessorExamDTO> topExams
+@param int weeklyDownloads
+@param int monthlyDownloads
+@param int yearlyDownloads
+@param int totalDownloads
 <div class="container">
     <article>
         <h3>MOTD Bearbeiten</h3>
@@ -32,5 +39,45 @@
                     hx-swap="outerHTML">Speichern
             </button>
         </form>
+    </article>
+
+    <article>
+        <header>
+            <h3>Statistiken</h3>
+            <small>Diese Statistiken können helfen zu entscheiden in welchen Modulen Altkausuren sehr gefragt sind und
+                ob es sich lohnt weitere anzufragen</small>
+        </header>
+        <main>
+            <div class="grid">
+                <article style="text-align: center; padding: 1.5rem;">
+                    <hgroup style="margin-bottom: 0;">
+                        <h2 style="margin-bottom: 0;">${weeklyDownloads}</h2>
+                        <p>Woche</p>
+                    </hgroup>
+                </article>
+                <article style="text-align: center; padding: 1.5rem;">
+                    <hgroup style="margin-bottom: 0;">
+                        <h2 style="margin-bottom: 0;">${monthlyDownloads}</h2>
+                        <p>Monat</p>
+                    </hgroup>
+                </article>
+                <article style="text-align: center; padding: 1.5rem;">
+                    <hgroup style="margin-bottom: 0;">
+                        <h2 style="margin-bottom: 0;">${yearlyDownloads}</h2>
+                        <p>Jahr</p>
+                    </hgroup>
+                </article>
+                <article style="text-align: center; padding: 1.5rem;">
+                    <hgroup style="margin-bottom: 0;">
+                        <h2 style="margin-bottom: 0;">${totalDownloads}</h2>
+                        <p>Gesamt</p>
+                    </hgroup>
+                </article>
+            </div>
+        </main>
+        <footer>
+            <h4>Top Downloads:</h4>
+            @template.examCards(exams = topExams)
+        </footer>
     </article>
 </div>

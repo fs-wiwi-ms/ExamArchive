@@ -43,6 +43,7 @@ public class ExamViewController implements Handler {
             ctx.status(404);
             return;
         }
+        repository.countDownload(exam);
         if(ctx.header("HX-Request") != null){
             ctx.header("HX-Redirect", url);
             ctx.status(302);

@@ -2,21 +2,32 @@ package ms.wiwi.examarchive.admin;
 
 import io.javalin.http.Context;
 import ms.wiwi.examarchive.MotdService;
+import ms.wiwi.examarchive.ProfessorExamDTO;
+import ms.wiwi.examarchive.Repository;
 import ms.wiwi.examarchive.model.Motd;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Map;
 
 public class AdminSettingsController {
 
     private final MotdService motdService;
+    private final Repository repository;
 
-    public AdminSettingsController(MotdService motdService) {
+    public AdminSettingsController(MotdService motdService, Repository repository) {
         this.motdService = motdService;
+        this.repository = repository;
     }
 
     public void handleGet(Context ctx){
-        ctx.render("adminSettings.jte");
+        int weeklyDownloads = repository.getWeeklyDownloads();
+        int monthlyDownloads = repository.getMonthlyDownloads();
+        int yearlyDownloads = repository.getYearlyDownloads();
+        int totalDownloads = repository.getTotalDownloads();
+        List<ProfessorExamDTO> topDownloads = repository.getTopDownloadedExams(15);
+        ctx.render("adminSettings.jte", Map.of("weeklyDownloads", weeklyDownloads, "monthlyDownloads", monthlyDownloads, "yearlyDownloads", yearlyDownloads, "totalDownloads", totalDownloads, "topExams", topDownloads));
     }
 
     public void handleUpdateMotdPost(Context context){

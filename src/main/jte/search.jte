@@ -102,7 +102,7 @@
                        autocomplete="off">
 
                 <details class="dropdown filter-dropdown">
-                    <summary role="button" class="secondary outline">Filter</summary>
+                    <summary role="button" class="secondary outline">${JteLocalizer.get("search.filter")}</summary>
                     <ul>
                         @for(Degree degree : degrees)
                             <li>
@@ -121,6 +121,10 @@
         </div>
 
         <div id="search-results">
+            <progress
+            hx-trigger="intersect once"
+            hx-target="#search-results"
+            hx-post="/exams/search"></progress>
         </div>
 
     </div>

@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.*;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -18,6 +19,8 @@ public class Repository {
 
     private final DBManager dbManager;
     Logger logger = LoggerFactory.getLogger(Repository.class);
+    private List<ModuleSearchResultDTO> topModulesCache = new ArrayList<>();
+    private Instant lastTopModulesCacheUpdate = Instant.MIN;
 
     public Repository(DBManager dbManager){
         this.dbManager = dbManager;
@@ -775,5 +778,186 @@ public class Repository {
         } catch (SQLException e) {
             logger.error("Could not remove degree to module in database", e);
         }
+    }
+
+    public void countDownload(Exam exam) {
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement("INSERT INTO downloads (examid) VALUES (?)")) {
+            statement.setString(1, exam.examID());
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Could not count download in database", e);
+        }
+    }
+
+    /**
+     * Gets the most downloaded modules from the database from the last 2 years
+     * Cached for one day
+     * @return list of modules
+     */
+    public List<ModuleSearchResultDTO> getMostDownloadedModules() {
+        if(lastTopModulesCacheUpdate.plus(1, ChronoUnit.DAYS).isAfter(Instant.now())){
+            return topModulesCache;
+        }
+        List<ModuleSearchResultDTO> topModules = new ArrayList<>();
+        String query = """
+            SELECT m.module_name, m.moduleid, m.professors_array, m.exam_count
+            FROM (
+                SELECT e.moduleid, COUNT(d.examid) as dl_count
+                FROM downloads d
+                JOIN exams e ON d.examid = e.examid
+                WHERE d.downloaded_at >= NOW() - INTERVAL '2 years'
+                GROUP BY e.moduleid
+                ORDER BY dl_count DESC
+                LIMIT 10
+            ) top_dl
+            JOIN module_search_view m ON top_dl.moduleid = m.moduleid
+            ORDER BY top_dl.dl_count DESC
+            """;
+
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query);
+             ResultSet rs = statement.executeQuery()) {
+
+            while (rs.next()) {
+                Array profArray = rs.getArray("professors_array");
+                String[] professors = profArray != null ? (String[]) profArray.getArray() : new String[0];
+
+                topModules.add(new ModuleSearchResultDTO(
+                        rs.getString("module_name"),
+                        rs.getString("moduleid"),
+                        professors,
+                        rs.getInt("exam_count")
+                ));
+            }
+        } catch (SQLException e) {
+            logger.error("Could not get most downloaded modules from database", e);
+        }
+        lastTopModulesCacheUpdate = Instant.now();
+        topModulesCache = topModules;
+        return topModules;
+    }
+
+    /**
+     * Retrieves the top downloaded exams along with their professor details.
+     *
+     * @param limit Maximum number of exams to return
+     * @return List of top downloaded exams
+     */
+    public List<ProfessorExamDTO> getTopDownloadedExams(int limit) {
+        List<ProfessorExamDTO> topExams = new ArrayList<>();
+        String query = """
+            SELECT e.examid, e.name, e.moduleid, e.semester, e.year, e.uploaddate,
+                   e.fileid, e.uploaderid, e.status, e.professorid,
+                   p.firstname, p.lastname
+            FROM (
+                SELECT examid, COUNT(examid) as dl_count
+                FROM downloads
+                GROUP BY examid
+                ORDER BY dl_count DESC
+                LIMIT ?
+            ) d
+            JOIN exams e ON d.examid = e.examid
+            LEFT JOIN professors p ON e.professorid = p.professorid
+            ORDER BY d.dl_count DESC
+            """;
+
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            statement.setInt(1, limit);
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    Exam exam = new Exam(
+                            rs.getString("name"),
+                            rs.getString("examid"),
+                            rs.getString("moduleid"),
+                            rs.getInt("year"),
+                            Semester.valueOf(rs.getString("semester")),
+                            rs.getTimestamp("uploaddate").toInstant(),
+                            rs.getString("fileid"),
+                            rs.getString("uploaderid"),
+                            ExamStatus.valueOf(rs.getString("status")),
+                            rs.getString("professorid")
+                    );
+
+                    Professor professor = null;
+                    if (rs.getString("professorid") != null) {
+                        professor = new Professor(
+                                rs.getString("professorid"),
+                                rs.getString("firstname"),
+                                rs.getString("lastname")
+                        );
+                    }
+                    topExams.add(new ProfessorExamDTO(exam, professor));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Could not get top downloaded exams", e);
+        }
+        return topExams;
+    }
+
+    /**
+     * Gets the total number of downloads in the last 7 days.
+     *
+     * @return Weekly download count
+     */
+    public int getWeeklyDownloads() {
+        return getDownloadsSince("1 week");
+    }
+
+    /**
+     * Gets the total number of downloads in the last 30 days.
+     *
+     * @return Monthly download count
+     */
+    public int getMonthlyDownloads() {
+        return getDownloadsSince("1 month");
+    }
+
+    /**
+     * Gets the total number of downloads in the last 365 days.
+     *
+     * @return Yearly download count
+     */
+    public int getYearlyDownloads() {
+        return getDownloadsSince("1 year");
+    }
+
+    /**
+     * Gets the absolute total number of downloads across all time.
+     *
+     * @return Total download count
+     */
+    public int getTotalDownloads() {
+        String query = "SELECT COUNT(examid) FROM downloads";
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query);
+             ResultSet rs = statement.executeQuery()) {
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            logger.error("Could not count total downloads", e);
+        }
+        return 0;
+    }
+
+    /**
+     * Helper method to count downloads dynamically based on a Postgres interval.
+     */
+    private int getDownloadsSince(String postgresInterval) {
+        String query = "SELECT COUNT(examid) FROM downloads WHERE downloaded_at >= NOW() - INTERVAL '" + postgresInterval + "'";
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query);
+             ResultSet rs = statement.executeQuery()) {
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            logger.error("Could not count downloads since interval: {}", postgresInterval, e);
+        }
+        return 0;
     }
 }
