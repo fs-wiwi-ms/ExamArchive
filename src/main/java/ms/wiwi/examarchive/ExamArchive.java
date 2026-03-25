@@ -119,7 +119,7 @@ public class ExamArchive {
             config.routes.get("/exams/upload/professors/clear", addExamController::handleClearProfessor);
             config.routes.get("/exams/view/{examid}", new ExamViewController(repository, s3Service));
             config.routes.get("/admin/admin", new AdminIndexController());
-            AdminExamsController adminExamsController = new AdminExamsController(repository, s3Service);
+            AdminExamsController adminExamsController = new AdminExamsController(repository, s3Service, emailService);
             config.routes.get("/admin/exams", adminExamsController::handleGet);
             config.routes.post("/admin/exams/deletemodule", adminExamsController::handleRemoveModule);
             config.routes.post("/admin/exams/addmodule", adminExamsController::handleAddModule);

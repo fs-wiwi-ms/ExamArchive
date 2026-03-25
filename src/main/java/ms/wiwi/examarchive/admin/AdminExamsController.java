@@ -2,9 +2,10 @@ package ms.wiwi.examarchive.admin;
 
 import io.javalin.http.Context;
 import ms.wiwi.examarchive.Repository;
-import ms.wiwi.examarchive.services.S3Service;
 import ms.wiwi.examarchive.model.*;
 import ms.wiwi.examarchive.model.Module;
+import ms.wiwi.examarchive.services.EmailService;
+import ms.wiwi.examarchive.services.S3Service;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,10 +20,12 @@ public class AdminExamsController {
     private final Logger logger = LoggerFactory.getLogger(AdminExamsController.class);
     private final Repository repository;
     private final S3Service s3Service;
+    private final EmailService emailService;
 
-    public AdminExamsController(Repository repository, S3Service s3Service) {
+    public AdminExamsController(Repository repository, S3Service s3Service, EmailService emailService) {
         this.repository = repository;
         this.s3Service = s3Service;
+        this.emailService = emailService;
     }
 
     public void handleAddModule(Context ctx) {
@@ -70,6 +73,23 @@ public class AdminExamsController {
         }
         Exam newExam = new Exam(exam.name(), exam.examID(), exam.moduleID(), exam.year(), exam.semester(), exam.uploadDate(), exam.fileID(), exam.uploaderID(), ExamStatus.ACCEPTED, exam.professorID());
         repository.updateExam(newExam);
+        User user = repository.getUser(exam.uploaderID());
+        if (user != null && user.role() == Role.USER) {
+            String subject = "Klausur akzeptiert";
+            String message = """
+                    Hallo %s,
+                    
+                    Ihre Klausur "%s" wurde in das Klausurarchiv aufgenommen.
+                    Vielen Dank für Ihre Hilfe im Namen der Fachschaft Wirtschaftswissenschaften.
+                    
+                    Liebe Grüße
+                    Das Klausurarchiv
+                    
+                    Diese Nachricht wurde automatisch generiert. Rückfragen bitte an: Klausurarchiv@fachschaft-wiwi.ms
+                    """;
+            List<String> email = List.of(user.email());
+            emailService.sendEmails(email, subject, message);
+        }
         handleGet(ctx);
     }
 
