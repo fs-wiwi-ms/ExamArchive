@@ -13,10 +13,7 @@ import ms.wiwi.examarchive.auth.OIDCService;
 import ms.wiwi.examarchive.controller.*;
 import ms.wiwi.examarchive.model.Role;
 import ms.wiwi.examarchive.model.User;
-import ms.wiwi.examarchive.services.DatabaseService;
-import ms.wiwi.examarchive.services.JteLocalizer;
-import ms.wiwi.examarchive.services.MotdService;
-import ms.wiwi.examarchive.services.S3Service;
+import ms.wiwi.examarchive.services.*;
 import org.eclipse.jetty.http.HttpCookie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +38,7 @@ public class ExamArchive {
     private final OIDCService oidcService;
     private final S3Service s3Service;
     private final MotdService motdService;
+    private final EmailService emailService;
     private final Logger logger = LoggerFactory.getLogger(ExamArchive.class);
 
     public ExamArchive(){
@@ -79,6 +77,17 @@ public class ExamArchive {
         s3Service.createBucketIfNotExists();
         logger.info("S3 connection established");
         motdService = new MotdService(repository);
+        emailService = new EmailService(
+                System.getenv("EXAMARCHIVE_SMTP_USERNAME"),
+                System.getenv("EXAMARCHIVE_SMTP_PASSWORD"),
+                System.getenv("EXAMARCHIVE_SMTP_HOST"),
+                System.getenv("EXAMARCHIVE_SMTP_PORT"),
+                System.getenv("EXAMARCHIVE_SMTP_FROM")
+        );
+        if(!emailService.testConnection()){
+            logger.error("Could not connect to SMTP server. Proceed starting without email service.");
+        }
+        logger.info("Email service initialized");
     }
 
     /**
@@ -101,7 +110,7 @@ public class ExamArchive {
             ShowModuleController showModuleHandler = new ShowModuleController(repository);
             config.routes.get("/exams/module/{moduleid}", showModuleHandler::handleGet);
             config.routes.post("/exams/module/{moduleid}/filter", showModuleHandler::handleFilter);
-            AddExamController addExamController = new AddExamController(repository, s3Service);
+            AddExamController addExamController = new AddExamController(repository, s3Service, emailService);
             config.routes.get("/exams/upload", addExamController::handleGet);
             config.routes.post("/exams/upload", addExamController::handlePost);
             config.routes.get("/exams/upload/form-content", addExamController::handleFormContent);

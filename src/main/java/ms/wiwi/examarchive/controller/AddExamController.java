@@ -5,6 +5,7 @@ import io.javalin.http.UploadedFile;
 import ms.wiwi.examarchive.Repository;
 import ms.wiwi.examarchive.model.*;
 import ms.wiwi.examarchive.model.Module;
+import ms.wiwi.examarchive.services.EmailService;
 import ms.wiwi.examarchive.services.JteLocalizer;
 import ms.wiwi.examarchive.services.S3Service;
 import org.slf4j.Logger;
@@ -28,9 +29,11 @@ public class AddExamController {
     private static final Pattern NAME_PATTERN = Pattern.compile("^[\\p{L}\\s\\-]+$");
     private final Repository repository;
     private final S3Service s3Service;
+    private final EmailService emailService;
 
-    public AddExamController(Repository repository, S3Service s3Service) {
+    public AddExamController(Repository repository, S3Service s3Service, EmailService emailService) {
         this.repository = repository;
+        this.emailService = emailService;
         this.s3Service = s3Service;
     }
 
@@ -106,6 +109,32 @@ public class AddExamController {
             String examName = module.name() + "-" + semesterStr + "-" + yearStr;
             Exam exam = new Exam(examName, examId, module.moduleID(), year, semester, Instant.now(), fileID, user.id(), ExamStatus.PENDING, professor.professorID());
             repository.addExam(exam);
+            List<String> adminEmails = repository.getAdminEmails();
+            if(!adminEmails.isEmpty() && user.role() != Role.ADMIN){
+                String subject = "Neue Klausur eingereicht (" + examName + ")";
+                String message = """
+                        Es wurde eine neue Klausur eingereicht:
+                        
+                        Name: %s
+                        Modul: %s
+                        Semester: %s
+                        Jahr: %s
+                        Professor: %s
+                        Nutzer: %s
+                        
+                        Logge dich im Klausurarchiv ein um diese zu bearbeiten und freizugeben.
+                        Nutze den Link unten, um die Klausur einzusehen:
+                        https://klausurarchiv.fachschaft-wiwi.ms/admin/admin
+                        
+                        Diese Klausur ist erst sichtbar, wenn sie von einem Administrator freigegeben wurde.
+                        Danke für deine Hilfe!
+                        
+                        Diese Nachricht wurde automatisch generiert und dient nur der Information.
+                        """.formatted(exam.name(), module.name(), semesterStr, yearStr, professor.firstName() + " " + professor.lastName(), user.firstname() + " " + user.lastname() + " (Email: " + user.email() + ")");
+                emailService.sendEmails(adminEmails, subject, message);
+            } else {
+                logger.warn("No admin emails found");
+            }
         } catch (Exception e) {
             logger.error("Error uploading file: ", e);
             s3Service.deleteFile(fileID);

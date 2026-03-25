@@ -988,4 +988,23 @@ public class Repository {
             logger.error("Could not delete old accounts", e);
         }
     }
+
+    /**
+     * Queries all admin emails from the database
+     */
+    public List<String> getAdminEmails() {
+        try(Connection connection = dbManager.getConnection();
+        PreparedStatement statement = connection.prepareStatement("SELECT email FROM users WHERE role = ?")) {
+            statement.setString(1, Role.ADMIN.name());
+            ResultSet resultSet = statement.executeQuery();
+            List<String> emails = new ArrayList<>();
+            while(resultSet.next()){
+                emails.add(resultSet.getString("email"));
+            }
+            return emails;
+        } catch (SQLException e) {
+            logger.error("Could not get admin emails", e);
+            return List.of();
+        }
+    }
 }

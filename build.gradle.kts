@@ -31,6 +31,8 @@ dependencies {
     //FILES
     implementation("org.apache.pdfbox:pdfbox:3.0.7")
     implementation("io.minio:minio:8.6.0")
+    //MAIL
+    implementation("com.sun.mail:jakarta.mail:2.0.2")
 }
 
 jte {
