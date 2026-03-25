@@ -77,16 +77,15 @@ public class AdminExamsController {
         if (user != null && user.role() == Role.USER) {
             String subject = "Klausur akzeptiert";
             String message = """
-                    Hallo %s,
+                    Guten Tag %s,
+                    Ihre eingereichte Klausur "%s" wurde erfolgreich in das Klausurarchiv aufgenommen.
+                    Im Namen der Fachschaft Wirtschaftswissenschaften bedanken wir uns herzlich für Ihre Unterstützung. Mit Ihrem Beitrag leisten Sie einen wichtigen Teil zur Prüfungsvorbereitung Ihrer Mitstudierenden.
                     
-                    Ihre Klausur "%s" wurde in das Klausurarchiv aufgenommen.
-                    Vielen Dank für Ihre Hilfe im Namen der Fachschaft Wirtschaftswissenschaften.
+                    Beste Grüße
+                    Die Fachschaft WiWi
                     
-                    Liebe Grüße
-                    Das Klausurarchiv
-                    
-                    Diese Nachricht wurde automatisch generiert. Rückfragen bitte an: Klausurarchiv@fachschaft-wiwi.ms
-                    """;
+                    Hinweis: Diese Nachricht wurde automatisch generiert. Bei Rückfragen stehen wir unter Klausurarchiv@fachschaft-wiwi.ms gerne zur Verfügung.
+                    """.formatted(user.firstname() + " " + user.lastname(), exam.name());
             List<String> email = List.of(user.email());
             emailService.sendEmails(email, subject, message);
         }
