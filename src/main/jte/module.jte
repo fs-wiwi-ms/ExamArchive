@@ -86,12 +86,14 @@
                     <summary role="button" class="secondary outline">${JteLocalizer.get("module.choose-prof")}</summary>
                     <ul>
                         @for(Professor prof : professors)
-                            <li>
-                                <label>
-                                    <input type="checkbox" name="professorFilter" value="${prof.professorID()}"/>
-                                    ${prof.getFullName()}
-                                </label>
-                            </li>
+                            @if(!prof.lastName().equals("Unbekannt"))
+                                <li>
+                                    <label>
+                                        <input type="checkbox" name="professorFilter" value="${prof.professorID()}"/>
+                                        ${prof.getFullName()}
+                                    </label>
+                                </li>
+                            @endif
                         @endfor
                     </ul>
                 </details>

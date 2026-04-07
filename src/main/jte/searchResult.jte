@@ -138,7 +138,9 @@
                             <h5 class="result-title">${result.name()}</h5>
                             <div class="professor-scroll-container">
                                 @for(String professor : result.professors())
-                                    <span class="professor-name">${professor}</span>
+                                    @if(!professor.contains("Unbekannt"))
+                                        <span class="professor-name">${professor}</span>
+                                    @endif
                                 @endfor
                             </div>
                         </div>
@@ -149,7 +151,6 @@
                                 ${JteLocalizer.get("search.exams")}
                             </div>
                         </div>
-
                     </a>
                 </li>
             @endfor

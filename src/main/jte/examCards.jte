@@ -13,7 +13,11 @@
             </header>
 
             <div class="flex-responsive">
-                <small>${exam.professor().getFullName()} &bull; ${JteLocalizer.get("module.year")}: ${exam.exam().year()}</small>
+                @if(exam.professor().lastName().equals("Unbekannt"))
+                    <small>${JteLocalizer.get("module.year")}: ${exam.exam().year()}</small>
+                @else
+                    <small>${exam.professor().getFullName()} &bull; ${JteLocalizer.get("module.year")}: ${exam.exam().year()}</small>
+                @endif
                 <small>
                     ${JteLocalizer.get("module.upload")}
                     <time datetime="${new SimpleDateFormat("yyyy-MM-dd").format(Date.from(exam.exam().uploadDate()))}">
