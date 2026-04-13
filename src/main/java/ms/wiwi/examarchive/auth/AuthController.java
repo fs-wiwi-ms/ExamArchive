@@ -86,7 +86,8 @@ public class AuthController {
         try {
             Nonce expectedNonce = new Nonce(storedNonceVal);
             CodeVerifier verifier = new CodeVerifier(verifierStr);
-            JWTClaimsSet claims = oidcService.exchangeCode(code, verifier, expectedNonce);
+            AuthResult authResult = oidcService.exchangeCode(code, verifier, expectedNonce);
+            JWTClaimsSet claims = authResult.claims();
 
             String eppn = claims.getStringClaim("eppn");
             String firstname = claims.getStringClaim("given_name");
@@ -111,6 +112,7 @@ public class AuthController {
             ctx.req().changeSessionId();
             ctx.sessionAttribute("userId", user.id());
             ctx.sessionAttribute("user", user);
+            ctx.sessionAttribute("idToken", authResult.idToken());
             if(user.role() == Role.ADMIN){
                 ctx.redirect("/admin/admin");
                 return;
@@ -139,10 +141,16 @@ public class AuthController {
     }
 
     /**
-     * Clears the user session.
+     * Initiates the logout process by invalidating the session and redirecting to the Keycloak logout URL.
      */
     public void logout(Context ctx) {
+        String idToken = ctx.sessionAttribute("idToken");
         ctx.req().getSession().invalidate();
+        if(idToken != null){
+            String logoutUrl = oidcService.getLogoutUrl(idToken);
+            ctx.redirect(logoutUrl);
+            return;
+        }
         ctx.redirect("/");
     }
 }

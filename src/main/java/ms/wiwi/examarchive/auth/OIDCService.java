@@ -1,7 +1,8 @@
 package ms.wiwi.examarchive.auth;
 
 import com.nimbusds.jose.JWSAlgorithm;
-import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.JWT;
+import com.nimbusds.jwt.JWTParser;
 import com.nimbusds.oauth2.sdk.*;
 import com.nimbusds.oauth2.sdk.auth.ClientAuthentication;
 import com.nimbusds.oauth2.sdk.auth.ClientSecretBasic;
@@ -63,7 +64,7 @@ public class OIDCService {
     /**
      * Exchanges the authorization code for tokens using the PKCE code verifier.
      */
-    public JWTClaimsSet exchangeCode(String codeParam, CodeVerifier codeVerifier, Nonce expectedNonce) throws Exception {
+    public AuthResult exchangeCode(String codeParam, CodeVerifier codeVerifier, Nonce expectedNonce) throws Exception {
         AuthorizationCode code = new AuthorizationCode(codeParam);
         AuthorizationGrant codeGrant = new AuthorizationCodeGrant(code, redirectUri, codeVerifier);
         ClientAuthentication clientAuth = new ClientSecretBasic(clientID, clientSecret);
@@ -78,7 +79,31 @@ public class OIDCService {
         }
         OIDCTokenResponse successResponse = (OIDCTokenResponse) response.toSuccessResponse();
         IDTokenClaimsSet claims = validator.validate(successResponse.getOIDCTokens().getIDToken(), expectedNonce);
+        String idToken = successResponse.getOIDCTokens().getIDToken().serialize();
+        return new AuthResult(claims.toJWTClaimsSet(), idToken);
+    }
 
-        return claims.toJWTClaimsSet();
+    /**
+     * Builds the RP-Initiated Logout URL for Keycloak.
+     */
+    public String getLogoutUrl(String idTokenHint) {
+        URI endSessionEndpoint = providerMetadata.getEndSessionEndpointURI();
+        if (endSessionEndpoint == null) {
+            return "/";
+        }
+
+        try {
+            JWT idToken = JWTParser.parse(idTokenHint);
+            URI postLogoutUri = new URI(redirectUri.getScheme(), redirectUri.getAuthority(), "/", null, null);
+            LogoutRequest request = new LogoutRequest(
+                    endSessionEndpoint,
+                    idToken,
+                    postLogoutUri,
+                    null
+            );
+            return request.toURI().toString();
+        } catch (Exception e) {
+            return "/";
+        }
     }
 }
