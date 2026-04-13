@@ -92,7 +92,7 @@
         <form class="search-form"
               hx-post="/exams/search"
               hx-target="#search-results"
-              hx-trigger="input delay:300ms from:[name='search'], change from:[name='degreeFilter']">
+              hx-trigger="submit, input delay:300ms from:[name='search'], change from:[name='degreeFilter']">
 
             <div class="search-container">
                 <input type="search"
