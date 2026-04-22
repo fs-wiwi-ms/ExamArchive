@@ -73,10 +73,23 @@
 
 <main id="main-content" class="container">
     <header class="flex-responsive module-header" style="margin-bottom: 1.5rem;">
-        <hgroup>
-            <h2>${module.name()}</h2>
-            <p>${JteLocalizer.get("module.description")}</p>
-        </hgroup>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+
+            <a href="javascript:history.back()"
+               role="button"
+               class="outline"
+               style="padding: 0.6rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: var(--pico-typography-spacing-vertical); --pico-primary: var(--pico-h1-color); --pico-primary-hover: var(--pico-color);"               aria-label="Go back" title="Go back">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+            </a>
+
+            <hgroup>
+                <h2>${module.name()}</h2>
+                <p>${JteLocalizer.get("module.description")}</p>
+            </hgroup>
+        </div>
 
         <div class="full-width-mobile">
             <form hx-post="/exams/module/${module.moduleID()}/filter"
