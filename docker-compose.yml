@@ -26,6 +26,8 @@ services:
         condition: service_healthy
       storage:
         condition: service_started
+      oidc-mock:
+        condition: service_started
     ports:
       - "1910:1910"
     environment:
@@ -35,9 +37,9 @@ services:
       EXAMARCHIVE_DB_USERNAME: "exam_user"
       EXAMARCHIVE_DB_PASSWORD: "exam_password"
       EXAMARCHIVE_DB_DATABASE: "exam_db"
-      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER}
-      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
-      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      KEYCLOAK_ISSUER: "http://oidc-mock.localhost:8080/default"
+      KEYCLOAK_CLIENT_ID: "exam-archive-local"
+      KEYCLOAK_CLIENT_SECRET: "dummy-secret"
       KEYCLOAK_REDIRECT_URI: "http://localhost:1910/auth/callback"
       KEYCLOAK_USER_AFFILIATION: "student@uni-muenster.de"
       KEYCLOAK_ADMIN_AFFILIATION: "3809c3c5-058e-4d4d-ade7-5466d18e819d"
@@ -62,7 +64,44 @@ services:
     volumes:
       - minio-data:/data
     command: server /data --console-address ":9001"
-
+  oidc-mock:
+    image: ghcr.io/navikt/mock-oauth2-server:2.1.0
+    container_name: oidc-mock
+    ports:
+      - "8080:8080"
+    networks:
+      default:
+        aliases:
+          - oidc-mock.localhost
+    environment:
+      SERVER_PORT: 8080
+      JSON_CONFIG: >
+        {
+          "interactiveLogin": true,
+          "httpServer": "NettyWrapper",
+          "tokenCallbacks": [
+            {
+              "issuerId": "default",
+              "tokenExpiry": 3600,
+              "requestMappings": [
+                {
+                  "requestParam": "redirect_uri",
+                  "match": "http://localhost:1910/auth/callback",
+                  "claims": {
+                    "sub": "mock-dev-id",
+                    "eppn": "dev_mock",
+                    "given_name": "Dev",
+                    "family_name": "User",
+                    "email": "dev@localhost.local",
+                    "affiliation": [
+                      "student@uni-muenster.de"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
 volumes:
   postgres_data:
   minio-data:
