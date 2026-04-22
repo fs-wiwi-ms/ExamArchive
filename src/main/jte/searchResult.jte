@@ -3,6 +3,7 @@
 @import java.util.List
 
 @param List<ModuleSearchResultDTO> results
+@param boolean isTopDownloads
 
 <style>
     .search-result-list {
@@ -116,6 +117,31 @@
         margin-bottom: 0.25rem;
         color: var(--pico-color);
     }
+
+    .top-downloads-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        color: var(--pico-muted-color);
+        padding-left: 0.25rem;
+    }
+
+    .top-downloads-header h5 {
+        margin: 0;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: inherit;
+    }
+
+    .more-results-hint {
+        text-align: center;
+        padding: 1.5rem 1rem 0.5rem 1rem;
+        color: var(--pico-muted-color);
+        font-size: 0.85rem;
+    }
 </style>
 
 @if(results.isEmpty())
@@ -129,6 +155,15 @@
     </div>
 @else
     <div id="search-results">
+        @if(isTopDownloads)
+            <div class="top-downloads-header">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                    <polyline points="17 6 23 6 23 12"></polyline>
+                </svg>
+                <h5>${JteLocalizer.get("search.top-downloads")}</h5>
+            </div>
+        @endif
         <ul class="search-result-list">
             @for(ModuleSearchResultDTO result : results)
                 <li class="search-result-item">
@@ -155,5 +190,10 @@
                 </li>
             @endfor
         </ul>
+        @if(isTopDownloads)
+            <div class="more-results-hint">
+                ${JteLocalizer.get("search.more-exams-hint")}
+            </div>
+        @endif
     </div>
 @endif

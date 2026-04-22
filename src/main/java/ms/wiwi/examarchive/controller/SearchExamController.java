@@ -30,11 +30,11 @@ public class SearchExamController implements Handler {
         String searchQuery = ctx.formParam("search");
         if(searchQuery == null || searchQuery.isBlank() || searchQuery.length() < 3){
             List<ModuleSearchResultDTO> resultList = repository.getMostDownloadedModules();
-            ctx.render("searchResult.jte", Map.of("results", resultList));
+            ctx.render("searchResult.jte", Map.of("results", resultList, "isTopDownloads", true));
             return;
         }
         List<String> degreeIds = ctx.formParams("degreeFilter");
         List<ModuleSearchResultDTO> resultList = repository.searchModules(searchQuery, degreeIds);
-        ctx.render("searchResult.jte", Map.of("results", resultList));
+        ctx.render("searchResult.jte", Map.of("results", resultList, "isTopDownloads", false));
     }
 }
