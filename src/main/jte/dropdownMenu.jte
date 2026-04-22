@@ -6,6 +6,7 @@
     <li><a href="mailto:klausurarchiv@fachschaft-wiwi.ms">${JteLocalizer.get("header.contact")}</a></li>
     <li><a href="https://fachschaft-wiwi.ms/">${JteLocalizer.get("header.website")}</a></li>
     @if(loggedIn)
+    <li><a href="/exams/search">Home</a></li>
     <li><a href="/logout">Logout</a></li>
     @else
     <li><a href="/login/admin">${JteLocalizer.get("header.admin")}</a></li>
