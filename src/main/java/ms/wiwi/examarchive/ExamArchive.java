@@ -99,7 +99,13 @@ public class ExamArchive {
         AuthController authController = new AuthController(oidcService, repository, System.getenv("KEYCLOAK_USER_AFFILIATION"), System.getenv("KEYCLOAK_ADMIN_AFFILIATION"));
         Javalin javalin = Javalin.create(config -> {
             config.fileRenderer(new JavalinJte(TemplateEngine.createPrecompiled(ContentType.Html)));
-            config.routes.get("/", ctx -> ctx.render("index.jte"));
+            config.routes.get("/", ctx -> {
+                if(ctx.sessionAttribute("user") != null){
+                    ctx.redirect("/exams/search");
+                    return;
+                }
+                ctx.render("index.jte");
+            });
             config.staticFiles.add("/public");
             config.routes.get("/login/{type}", authController::login);
             config.routes.get("/auth/callback", authController::callback);
