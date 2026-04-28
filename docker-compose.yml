@@ -21,6 +21,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    restart:
+      unless-stopped
     depends_on:
       db:
         condition: service_healthy
@@ -41,8 +43,8 @@ services:
       KEYCLOAK_CLIENT_ID: "exam-archive-local"
       KEYCLOAK_CLIENT_SECRET: "dummy-secret"
       KEYCLOAK_REDIRECT_URI: "http://localhost:1910/auth/callback"
-      KEYCLOAK_USER_AFFILIATION: "student@uni-muenster.de"
-      KEYCLOAK_ADMIN_AFFILIATION: "3809c3c5-058e-4d4d-ade7-5466d18e819d"
+      KEYCLOAK_USER_AFFILIATION: "student"
+      KEYCLOAK_ADMIN_AFFILIATION: "admin"
       EXAMARCHIVE_STORAGE_ENDPOINT: "http://minio-local:9000"
       EXAMARCHIVE_STORAGE_ACCESS_KEY: "admin"
       EXAMARCHIVE_STORAGE_SECRET_KEY: "password123"
@@ -94,7 +96,7 @@ services:
                     "family_name": "User",
                     "email": "dev@localhost.local",
                     "affiliation": [
-                      "student@uni-muenster.de"
+                      "admin"
                     ]
                   }
                 }

@@ -1,11 +1,16 @@
 @import ms.wiwi.examarchive.services.JteLocalizer
 @param boolean loggedIn
+@param boolean isAdmin
 @param String lang
 <summary>☰</summary>
 <ul dir="rtl">
     <li><a href="mailto:klausurarchiv@fachschaft-wiwi.ms">${JteLocalizer.get("header.contact")}</a></li>
     <li><a href="https://fachschaft-wiwi.ms/">${JteLocalizer.get("header.website")}</a></li>
-    @if(loggedIn)
+    @if(isAdmin)
+    <li><a href="/exams/search">Klausursuche</a></li>
+    <li><a style="color: maroon" href="/admin/admin">Admin Dashboard</a></li>
+    <li><a href="/logout">Logout</a></li>
+    @elseif(loggedIn)
     <li><a href="/exams/search">Home</a></li>
     <li><a href="/logout">Logout</a></li>
     @else

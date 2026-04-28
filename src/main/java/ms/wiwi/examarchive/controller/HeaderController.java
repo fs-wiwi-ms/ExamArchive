@@ -2,6 +2,7 @@ package ms.wiwi.examarchive.controller;
 
 import io.javalin.http.Context;
 import io.javalin.http.Handler;
+import ms.wiwi.examarchive.model.Role;
 import ms.wiwi.examarchive.model.User;
 
 import java.util.Locale;
@@ -19,10 +20,14 @@ public class HeaderController implements Handler {
             return;
         }
         if(user == null){
-            ctx.render("dropdownMenu.jte", Map.of("loggedIn", false, "lang", language));
+            ctx.render("dropdownMenu.jte", Map.of("loggedIn", false, "lang", language, "isAdmin", false));
             return;
         }
-        ctx.render("dropdownMenu.jte", Map.of("loggedIn", true, "lang", language));
+        if(user.role() == Role.ADMIN) {
+            ctx.render("dropdownMenu.jte", Map.of("loggedIn", true, "lang", language, "isAdmin", true));
+            return;
+        }
+        ctx.render("dropdownMenu.jte", Map.of("loggedIn", true, "lang", language, "isAdmin", false));
     }
 
     private String getDefaultLocale(Context ctx){
