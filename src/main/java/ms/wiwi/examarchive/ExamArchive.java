@@ -96,7 +96,7 @@ public class ExamArchive {
     private void start() {
         dbManager.migrateDatabase();
         logger.info("Starting webserver");
-        AuthController authController = new AuthController(oidcService, repository, System.getenv("KEYCLOAK_USER_AFFILIATION"), System.getenv("KEYCLOAK_ADMIN_AFFILIATION"));
+        AuthController authController = new AuthController(oidcService, repository, System.getenv("KEYCLOAK_USER_AFFILIATION"), System.getenv("KEYCLOAK_ADMIN_AFFILIATION"), System.getenv("EXAMARCHIVE_ADMIN_EMAIL"));
         Javalin javalin = Javalin.create(config -> {
             config.fileRenderer(new JavalinJte(TemplateEngine.createPrecompiled(ContentType.Html)));
             config.routes.get("/", ctx -> {

@@ -25,12 +25,14 @@ public class AuthController {
     private final Logger logger = LoggerFactory.getLogger(AuthController.class);
     private final String userAffiliation;
     private final String adminAffiliation;
+    private final String adminEmailDomain;
 
-    public AuthController(OIDCService oidcService, Repository userRepository, String userAffiliation, String adminAffiliation) {
+    public AuthController(OIDCService oidcService, Repository userRepository, String userAffiliation, String adminAffiliation, String adminEmailDomain) {
         this.oidcService = oidcService;
         this.repository = userRepository;
         this.userAffiliation = userAffiliation;
         this.adminAffiliation = adminAffiliation;
+        this.adminEmailDomain = adminEmailDomain;
     }
 
     /**
@@ -94,26 +96,34 @@ public class AuthController {
             String lastname = claims.getStringClaim("family_name");
             String email = claims.getStringClaim("email");
             List<String> affiliation = claims.getStringListClaim("affiliation");
+
+            boolean isStudent = affiliation != null && checkAffiliation(affiliation, userAffiliation);
+            boolean isAdmin = affiliation != null && checkAffiliation(affiliation, adminAffiliation);
+
             Role role = Role.BLOCKED;
-            if(affiliation != null && checkAffiliation(affiliation, userAffiliation)){
+            if (isAdmin) {
+                role = Role.ADMIN;
+            } else if (isStudent) {
                 role = Role.USER;
             }
-            if(affiliation != null && checkAffiliation(affiliation, adminAffiliation)){
-                role = Role.ADMIN;
+            if (email != null && email.endsWith(adminEmailDomain) && role != Role.ADMIN) {
+                ctx.status(403).result("Access denied. Please login with your university account.");
+                logger.info("Council member {} tried to log in without admin rights", email);
+                return;
             }
             User user = new User(eppn, firstname, lastname, Instant.now(), Instant.now(), email, role);
-            logger.info("User {} logged in", user);
+            logger.info("Evaluating login for User {}", user.email());
             user = repository.addOrUpdateUser(user);
-            if(user.role() == Role.BLOCKED){
+            if (user.role() == Role.BLOCKED) {
                 ctx.status(403).result("You are not allowed to log in.");
-                logger.info("User {} tried to log in but is not allowed", email);
+                logger.warn("User {} tried to log in but is permanently blocked", email);
                 return;
             }
             ctx.req().changeSessionId();
             ctx.sessionAttribute("userId", user.id());
             ctx.sessionAttribute("user", user);
             ctx.sessionAttribute("idToken", authResult.idToken());
-            if(user.role() == Role.ADMIN){
+            if (user.role() == Role.ADMIN) {
                 ctx.redirect("/admin/admin");
                 return;
             }

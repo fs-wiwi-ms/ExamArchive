@@ -102,11 +102,16 @@ public class Repository {
      */
     public User addOrUpdateUser(User user) {
         String sql = """
-        INSERT INTO users (userid, firstname, lastname, lastlogin, createdat, email, role)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT (userid) DO UPDATE SET lastlogin = ?
-        RETURNING userid, firstname, lastname, lastlogin, createdat, email, role
-        """;
+    INSERT INTO users (userid, firstname, lastname, lastlogin, createdat, email, role)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT (userid) DO UPDATE SET
+        lastlogin = EXCLUDED.lastlogin,
+        role = EXCLUDED.role,
+        firstname = EXCLUDED.firstname,
+        lastname = EXCLUDED.lastname,
+        email = EXCLUDED.email
+    RETURNING userid, firstname, lastname, lastlogin, createdat, email, role
+    """;
 
         try (Connection connection = dbManager.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -118,8 +123,6 @@ public class Repository {
             statement.setTimestamp(5, Timestamp.from(user.createdAt()));
             statement.setString(6, user.email());
             statement.setString(7, user.role().name());
-            statement.setTimestamp(8, Timestamp.from(Instant.now()));
-
             try (ResultSet rs = statement.executeQuery()) {
                 if (rs.next()) {
                     return new User(

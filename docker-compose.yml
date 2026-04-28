@@ -54,6 +54,7 @@ services:
       EXAMARCHIVE_SMTP_USERNAME: ${EXAMARCHIVE_SMTP_USERNAME}
       EXAMARCHIVE_SMTP_PASSWORD: ${EXAMARCHIVE_SMTP_PASSWORD}
       EXAMARCHIVE_SMTP_FROM: ${EXAMARCHIVE_SMTP_FROM}
+      EXAMARCHIVE_ADMIN_EMAIL: "@localhost.local"
   storage:
     image: minio/minio:latest
     container_name: minio-local

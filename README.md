@@ -36,6 +36,12 @@ ExamArchive is built using Java and the Javalin web framework. It uses the Java 
 * `EXAMARCHIVE_STORAGE_ACCESS_KEY`: The access key credential for the storage service.
 * `EXAMARCHIVE_STORAGE_SECRET_KEY`: The secret key credential for the storage service.
 * `EXAMARCHIVE_STORAGE_BUCKET`: The name of the storage bucket. The application automatically creates this bucket on startup if it does not already exist.
+* `EXAMARCHIVE_ADMIN_EMAIL` : The email address of the admin user. For example, @example.com
+* `EXAMARCHIVE_SMTP_HOST` : The SMTP host to use for sending emails.
+* `EXAMARCHIVE_SMTP_PORT` : The SMTP port to use for sending emails.
+* `EXAMARCHIVE_SMTP_USERNAME` : The username for SMTP authentication.
+* `EXAMARCHIVE_SMTP_PASSWORD` : The password for SMTP authentication.
+* `EXAMARCHIVE_SMTP_FROM` : The email address to use as the sender for all outgoing emails.
 
 ***
 
@@ -75,9 +81,15 @@ ExamArchive basiert auf Java und nutzt das Javalin-Webframework. Das serverseiti
 * `EXAMARCHIVE_STORAGE_ACCESS_KEY`: Der Zugriffsschlüssel (Access Key) für den S3-Speicher.
 * `EXAMARCHIVE_STORAGE_SECRET_KEY`: Der geheime Schlüssel (Secret Key) für den S3-Speicher.
 * `EXAMARCHIVE_STORAGE_BUCKET`: Der Name des S3-Buckets. Falls der Bucket nicht existiert, erstellt die Anwendung diesen beim Startvorgang automatisch.
+* `EXAMARCHIVE_ADMIN_EMAIL` : Die Domain, mit der sich admins anmelden. Beispielweise: @example.com
+* `EXAMARCHIVE_SMTP_HOST` : Der SMTP Host zur Versand von Emails.
+* `EXAMARCHIVE_SMTP_PORT` : Der SMTP Port zur Versand von Emails.
+* `EXAMARCHIVE_SMTP_USERNAME` : Der SMTP Benutzername zur Authentifizierung.
+* `EXAMARCHIVE_SMTP_PASSWORD` : Der SMTP Passwort zur Authentifizierung.
+* `EXAMARCHIVE_SMTP_FROM` : Die Email-Adresse, von der aus Emails gesendet werden.
 
 
 ###### **AI-Info:**
-Diese Readme wurde durch Gemini erstellt, aber sorgsam geprüft.
-Kleinere Teile des Frontends wurden mittels Gemini erstellt (bspw. CSS)
-Einige Queries wurden mittels Gemini optimiert (bspw. Klausursuche)
+- Diese Readme wurde durch Gemini erstellt, aber sorgsam geprüft und manuell im weiteren Verlauf erweitert.
+- Kleinere Teile des Frontends wurden mittels Gemini erstellt (bspw. CSS)
+- Einige Queries wurden mittels Gemini optimiert (bspw. Klausursuche)
