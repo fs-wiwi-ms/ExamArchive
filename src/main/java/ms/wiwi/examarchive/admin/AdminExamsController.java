@@ -65,12 +65,12 @@ public class AdminExamsController {
             ctx.result("Fehler beim akzeptieren der Klausur.");
             return;
         }
-        logger.info("Accepting Exam: " + body);
         Exam exam = repository.getExam(body);
         if(exam == null){
             ctx.result("Klausur konnte nicht gefunden werden");
             return;
         }
+        logger.info("Accepting Exam: " + body + " (" + exam.name() + ")");
         Exam newExam = new Exam(exam.name(), exam.examID(), exam.moduleID(), exam.year(), exam.semester(), exam.uploadDate(), exam.fileID(), exam.uploaderID(), ExamStatus.ACCEPTED, exam.professorID());
         repository.updateExam(newExam);
         User user = repository.getUser(exam.uploaderID());
