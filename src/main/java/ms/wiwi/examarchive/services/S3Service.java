@@ -1,7 +1,6 @@
 package ms.wiwi.examarchive.services;
 
 import io.minio.*;
-import io.minio.http.Method;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.io.RandomAccessReadBufferedFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -72,7 +71,7 @@ public class S3Service {
                 throw new IOException("Failed to sanitize the PDF. Upload aborted.");
             }
             try (InputStream is = new FileInputStream(tempSanitizedFile)) {
-                s3client.putObject(PutObjectArgs.builder().bucket(bucketName).object(objectName).stream(is, tempSanitizedFile.length(), -1)
+                s3client.putObject(PutObjectArgs.builder().bucket(bucketName).object(objectName).stream(is, tempSanitizedFile.length(), -1L)
                         .contentType("application/pdf").build());
 
                 logger.info("Successfully uploaded sanitized PDF to {}/{}", bucketName, objectName);
@@ -126,7 +125,7 @@ public class S3Service {
         try {
             Map<String, String> reqParams = new HashMap<>();
             reqParams.put("response-content-disposition", "attachment; filename=\"" + filename + "\"");
-            return s3client.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder().method(Method.GET).bucket(bucketName).object(objectName).expiry(10, TimeUnit.MINUTES).extraQueryParams(reqParams).build());
+            return s3client.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder().method(Http.Method.GET).bucket(bucketName).object(objectName).expiry(10, TimeUnit.MINUTES).extraQueryParams(reqParams).build());
         } catch (Exception e) {
             logger.error("Could not create presigned URL for object {} in bucket {}", objectName, bucketName, e);
             return null;
