@@ -16,21 +16,21 @@ repositories {
 
 dependencies {
     //WEB
-    implementation("io.javalin:javalin:7.0.0")
-    implementation("io.javalin:javalin-rendering-jte:7.0.0")
-    implementation("gg.jte:jte:3.1.15")
+    implementation("io.javalin:javalin:7.2.3")
+    implementation("io.javalin:javalin-rendering-jte:7.2.3")
+    implementation("gg.jte:jte:3.2.4")
     //LOG
-    implementation("org.slf4j:slf4j-simple:2.0.17")
+    implementation("org.slf4j:slf4j-simple:2.0.18")
     //DB
-    implementation("com.zaxxer:HikariCP:7.0.2")
-    implementation("org.postgresql:postgresql:42.7.10")
-    implementation("org.flywaydb:flyway-core:12.0.3")
+    implementation("com.zaxxer:HikariCP:7.1.0")
+    implementation("org.postgresql:postgresql:42.7.13")
+    implementation("org.flywaydb:flyway-core:13.3.0")
     implementation("org.flywaydb:flyway-database-postgresql:12.0.3")
     //AUTH
-    implementation("com.nimbusds:oauth2-oidc-sdk:11.33")
+    implementation("com.nimbusds:oauth2-oidc-sdk:11.38.2")
     //FILES
-    implementation("org.apache.pdfbox:pdfbox:3.0.7")
-    implementation("io.minio:minio:8.6.0")
+    implementation("org.apache.pdfbox:pdfbox:3.0.8")
+    implementation("io.minio:minio:9.0.3")
     //MAIL
     implementation("com.sun.mail:jakarta.mail:2.0.2")
 }
