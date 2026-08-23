@@ -112,7 +112,7 @@ public class AuthController {
                 return;
             }
             User user = new User(eppn, firstname, lastname, Instant.now(), Instant.now(), email, role);
-            logger.info("Evaluating login for User {}", user.email());
+            logger.info("Evaluating login for User {}", user.id());
             user = repository.addOrUpdateUser(user);
             if (user.role() == Role.BLOCKED) {
                 ctx.status(403).result("You are not allowed to log in.");
