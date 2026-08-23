@@ -33,4 +33,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh cache delete --all --ref refs/pull/${{ github.event.pull_request.number }}/merge || true
+          gh cache delete --all --repo ${{ github.repository }} --ref refs/pull/${{ github.event.pull_request.number }}/merge || true
