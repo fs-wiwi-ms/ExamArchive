@@ -1,0 +1,36 @@
+name: Cleanup PR Resources
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  packages: write
+  actions: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete PR Image from GHCR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ORG: ${{ github.repository_owner }}
+          PKG: examarchive
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          VERSION_ID=$(gh api -H "Accept: application/vnd.github+json" \
+            /orgs/$ORG/packages/container/$PKG/versions \
+            --jq ".[] | select(.metadata.container.tags[] | contains(\"pr-$PR\")) | .id")
+          if [ -n "$VERSION_ID" ]; then
+            echo "Deleting package version ID: $VERSION_ID"
+            gh api --method DELETE -H "Accept: application/vnd.github+json" \
+              /orgs/$ORG/packages/container/$PKG/versions/$VERSION_ID
+          else
+            echo "No image found for pr-$PR. It may have already been deleted."
+          fi
+
+      - name: Purge PR Cache
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh cache delete --all --ref refs/pull/${{ github.event.pull_request.number }}/merge || true
