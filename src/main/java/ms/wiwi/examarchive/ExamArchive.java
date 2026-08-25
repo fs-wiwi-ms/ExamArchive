@@ -116,6 +116,7 @@ public class ExamArchive {
             ShowModuleController showModuleHandler = new ShowModuleController(repository);
             config.routes.get("/exams/module/{moduleid}", showModuleHandler::handleGet);
             config.routes.post("/exams/module/{moduleid}/filter", showModuleHandler::handleFilter);
+            config.routes.get("/exams/module/{moduleid}/examai", new ExamAIController(repository));
             AddExamController addExamController = new AddExamController(repository, s3Service, emailService);
             config.routes.get("/exams/upload", addExamController::handleGet);
             config.routes.post("/exams/upload", addExamController::handlePost);
