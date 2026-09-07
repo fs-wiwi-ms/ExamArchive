@@ -24,4 +24,5 @@ public record Exam(String name,
                    String fileID,
                    String uploaderID,
                    ExamStatus status,
-                   String professorID) {}
+                   String professorID,
+                   String scan) {}
