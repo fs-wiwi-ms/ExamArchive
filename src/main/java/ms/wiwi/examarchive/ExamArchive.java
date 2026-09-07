@@ -244,5 +244,6 @@ public class ExamArchive {
     private void scheduleUserDeletion() {
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         scheduler.scheduleAtFixedRate(repository::deleteOldAccounts, 0, 1, TimeUnit.DAYS);
+        //TODO delte user exams
     }
 }

@@ -661,7 +661,6 @@ public class Repository {
                 String module = resultSet.getString("module");
                 keywords.add(new KeyWord(keyword, module));
             }
-            refreshModuleSearchView();
             return keywords;
         } catch (SQLException e) {
             logger.error("Could not get keywords from database", e);
@@ -1007,6 +1006,43 @@ public class Repository {
             return emails;
         } catch (SQLException e) {
             logger.error("Could not get admin emails", e);
+            return List.of();
+        }
+    }
+
+    public List<Exam> queryExamsFilterByDateAndProf(int year, List<Professor> professors){
+        try(Connection connection = dbManager.getConnection();
+        PreparedStatement statement = connection.prepareStatement("""
+        SELECT
+            e.examID, e.name AS exam_name, e.semester, e.moduleid, e.year, e.uploadDate, e.fileID, e.status, e.uploaderid,
+            p.professorID
+        FROM exams e
+        INNER JOIN professors p ON e.professorID = p.professorID
+        WHERE e.status = ? AND e.professorID = ANY(?) AND e.year >= ?
+        ORDER BY e.year DESC
+        LIMIT 3
+        """)){
+            statement.setString(1, ExamStatus.ACCEPTED.name());
+            statement.setArray(2, connection.createArrayOf("varchar", professors.stream().map(Professor::professorID).toArray(String[]::new)));
+            statement.setInt(3, year);
+            ResultSet set = statement.executeQuery();
+            List<Exam> exams = new ArrayList<>();
+            while(set.next()){
+                String examid = set.getString("examID");
+                String examName = set.getString("exam_name");
+                Semester semester = Semester.valueOf(set.getString("semester"));
+                int exam_year = set.getInt("year");
+                String moduleID = set.getString("moduleid");
+                Instant uploaddate = set.getTimestamp("uploaddate").toInstant();
+                String fileID = set.getString("fileID");
+                String uploaderID = set.getString("uploaderid");
+                ExamStatus status = ExamStatus.valueOf(set.getString("status"));
+                String profID = set.getString("professorID");
+                exams.add(new Exam(examName, examid, moduleID, year, semester, uploaddate, fileID, uploaderID, status, profID));
+            }
+            return exams;
+        } catch (SQLException e){
+            logger.error("Could not query exams", e);
             return List.of();
         }
     }
