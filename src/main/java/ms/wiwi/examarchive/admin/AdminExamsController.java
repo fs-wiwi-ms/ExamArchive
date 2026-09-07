@@ -104,7 +104,7 @@ public class AdminExamsController {
             ctx.result("Klausur konnte nicht gefunden werden");
             return;
         }
-        s3Service.deleteFile(exam.fileID());
+        s3Service.deleteFile(exam.fileID(), S3Service.Bucket.EXAMS);
         repository.deleteExam(body);
         handleGet(ctx);
     }
@@ -150,7 +150,7 @@ public class AdminExamsController {
             ctx.status(404);
             return;
         }
-        s3Service.deleteFile(exam.fileID());
+        s3Service.deleteFile(exam.fileID(), S3Service.Bucket.EXAMS);
         repository.deleteExam(examID);
         handleGet(ctx);
     }

@@ -67,15 +67,17 @@ public class ExamArchive {
         repository = new Repository(dbManager);
         Runtime.getRuntime().addShutdownHook(new Thread(dbManager::close));
         logger.info("Connecting to S3");
+        S3Service.Bucket.EXAMS.setName(System.getenv("EXAMARCHIVE_STORAGE_BUCKET"));
+        S3Service.Bucket.USER_EXAMS.setName(System.getenv("EXAMARCHIVE_USER_STORAGE_BUCKET"));
         s3Service = new S3Service(
                 System.getenv("EXAMARCHIVE_STORAGE_ENDPOINT"),
                 System.getenv("EXAMARCHIVE_STORAGE_ACCESS_KEY"),
-                System.getenv("EXAMARCHIVE_STORAGE_SECRET_KEY"),
-                System.getenv("EXAMARCHIVE_STORAGE_BUCKET"));
+                System.getenv("EXAMARCHIVE_STORAGE_SECRET_KEY"));
         if(!s3Service.testConnection()){
             throw new RuntimeException("Could not connect to S3");
         }
-        s3Service.createBucketIfNotExists();
+        s3Service.createBucketIfNotExists(S3Service.Bucket.EXAMS);
+        s3Service.createBucketIfNotExists(S3Service.Bucket.USER_EXAMS);
         logger.info("S3 connection established");
         motdService = new MotdService(repository);
         emailService = new EmailService(

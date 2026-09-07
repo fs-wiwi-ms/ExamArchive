@@ -103,7 +103,7 @@ public class AddExamController {
         try (InputStream content = file.content()) {
             File pdf = Files.createTempFile(examId, ".pdf").toFile();
             Files.copy(content, pdf.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            s3Service.uploadPDF(pdf, fileID);
+            s3Service.uploadPDF(pdf, fileID, S3Service.Bucket.EXAMS);
             pdf.delete();
             Professor professor = repository.getOrCreateProfessor(firstName, lastName);
             String examName = module.name() + "-" + semesterStr + "-" + yearStr;
@@ -137,7 +137,7 @@ public class AddExamController {
             }
         } catch (Exception e) {
             logger.error("Error uploading file: ", e);
-            s3Service.deleteFile(fileID);
+            s3Service.deleteFile(fileID, S3Service.Bucket.EXAMS);
             errors.add(JteLocalizer.lookup("addExam.error.fileUploadFailed"));
         }
         if (!errors.isEmpty()) {
