@@ -4,6 +4,7 @@ import gg.jte.ContentType;
 import gg.jte.TemplateEngine;
 import io.javalin.Javalin;
 import io.javalin.rendering.template.JavalinJte;
+import io.javalin.router.JavalinDefaultRoutingApi;
 import ms.wiwi.examarchive.admin.AdminExamsController;
 import ms.wiwi.examarchive.admin.AdminIndexController;
 import ms.wiwi.examarchive.admin.AdminSettingsController;
@@ -66,15 +67,17 @@ public class ExamArchive {
         repository = new Repository(dbManager);
         Runtime.getRuntime().addShutdownHook(new Thread(dbManager::close));
         logger.info("Connecting to S3");
+        S3Service.Bucket.EXAMS.setName(System.getenv("EXAMARCHIVE_STORAGE_BUCKET"));
+        S3Service.Bucket.USER_EXAMS.setName(System.getenv("EXAMARCHIVE_USER_STORAGE_BUCKET"));
         s3Service = new S3Service(
                 System.getenv("EXAMARCHIVE_STORAGE_ENDPOINT"),
                 System.getenv("EXAMARCHIVE_STORAGE_ACCESS_KEY"),
-                System.getenv("EXAMARCHIVE_STORAGE_SECRET_KEY"),
-                System.getenv("EXAMARCHIVE_STORAGE_BUCKET"));
+                System.getenv("EXAMARCHIVE_STORAGE_SECRET_KEY"));
         if(!s3Service.testConnection()){
             throw new RuntimeException("Could not connect to S3");
         }
-        s3Service.createBucketIfNotExists();
+        s3Service.createBucketIfNotExists(S3Service.Bucket.EXAMS);
+        s3Service.createBucketIfNotExists(S3Service.Bucket.USER_EXAMS);
         logger.info("S3 connection established");
         motdService = new MotdService(repository);
         emailService = new EmailService(
@@ -116,6 +119,10 @@ public class ExamArchive {
             ShowModuleController showModuleHandler = new ShowModuleController(repository);
             config.routes.get("/exams/module/{moduleid}", showModuleHandler::handleGet);
             config.routes.post("/exams/module/{moduleid}/filter", showModuleHandler::handleFilter);
+            ExamAIController examAIController = new ExamAIController(repository);
+            config.routes.get("/exams/module/{moduleid}/examai", examAIController::handleGet);
+            config.routes.post("/exams/module/{moduleid}/examai", examAIController::handlePost);
+            config.routes.sse("/exams/ai/job/{jobid}", examAIController::handleSse);
             AddExamController addExamController = new AddExamController(repository, s3Service, emailService);
             config.routes.get("/exams/upload", addExamController::handleGet);
             config.routes.post("/exams/upload", addExamController::handlePost);
@@ -239,5 +246,6 @@ public class ExamArchive {
     private void scheduleUserDeletion() {
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         scheduler.scheduleAtFixedRate(repository::deleteOldAccounts, 0, 1, TimeUnit.DAYS);
+        //TODO delte user exams
     }
 }

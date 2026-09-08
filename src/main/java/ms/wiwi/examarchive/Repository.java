@@ -29,7 +29,7 @@ public class Repository {
 
     public @Nullable Exam getExam(String id){
         try(Connection connection = dbManager.getConnection();
-            PreparedStatement statement = connection.prepareStatement("SELECT examid, name, moduleid, year, semester, uploaddate, fileid, uploaderid, status, professorid FROM exams WHERE exams.examid = ?")) {
+            PreparedStatement statement = connection.prepareStatement("SELECT examid, name, moduleid, year, semester, uploaddate, fileid, uploaderid, status, professorid, scan FROM exams WHERE exams.examid = ?")) {
             statement.setString(1, id);
             ResultSet resultSet = statement.executeQuery();
             if(!resultSet.next()){
@@ -44,8 +44,9 @@ public class Repository {
             String uploaderId = resultSet.getString("uploaderid");
             ExamStatus status = ExamStatus.valueOf(resultSet.getString("status"));
             String professorId = resultSet.getString("professorid");
+            String scan = resultSet.getString("scan");
             Instant uploaddate = resultSet.getTimestamp("uploaddate").toInstant();
-            return new Exam(name, examId, moduleId, year, semester, uploaddate, fileId, uploaderId, status, professorId);
+            return new Exam(name, examId, moduleId, year, semester, uploaddate, fileId, uploaderId, status, professorId, scan);
         } catch (SQLException e) {
             logger.error("Could not get exam from database", e);
             return null;
@@ -77,7 +78,7 @@ public class Repository {
      */
     public void addExam(Exam exam){
         try (Connection connection = dbManager.getConnection();
-             PreparedStatement statement = connection.prepareStatement("INSERT INTO exams (examid, name, moduleid, semester, year, uploaddate, fileid, uploaderid, status, professorid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")){
+             PreparedStatement statement = connection.prepareStatement("INSERT INTO exams (examid, name, moduleid, semester, year, uploaddate, fileid, uploaderid, status, professorid, scan) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")){
             statement.setString(1, exam.examID());
             statement.setString(2, exam.name());
             statement.setString(3, exam.moduleID());
@@ -88,6 +89,7 @@ public class Repository {
             statement.setString(8, exam.uploaderID());
             statement.setString(9, exam.status().name());
             statement.setString(10, exam.professorID());
+            statement.setString(11, exam.scan());
             statement.executeUpdate();
             refreshModuleSearchView();
         } catch (SQLException e) {
@@ -170,7 +172,7 @@ public class Repository {
         try (Connection connection = dbManager.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
                      UPDATE exams
-                     SET name = ?, moduleid = ?, year = ?, semester = ?, uploaddate = ?, fileid = ?, uploaderid = ?, status = ?, professorid = ?
+                     SET name = ?, moduleid = ?, year = ?, semester = ?, uploaddate = ?, fileid = ?, uploaderid = ?, status = ?, professorid = ?, scan = ?
                      WHERE examid = ?
                      """)) {
             statement.setString(1, newExam.name());
@@ -182,7 +184,8 @@ public class Repository {
             statement.setString(7, newExam.uploaderID());
             statement.setString(8, newExam.status().name());
             statement.setString(9, newExam.professorID());
-            statement.setString(10, newExam.examID());
+            statement.setString(10, newExam.scan());
+            statement.setString(11, newExam.examID());
             statement.executeUpdate();
             refreshModuleSearchView();
         } catch (Exception e) {
@@ -224,7 +227,7 @@ public class Repository {
 
         String query = """
             SELECT
-                e.examID, e.name AS exam_name, e.semester, e.year, e.uploadDate, e.fileID, e.status,
+                e.examID, e.name AS exam_name, e.semester, e.year, e.uploadDate, e.fileID, e.status, e.scan,
                 m.moduleID, m.name AS module_name,
                 p.professorID, p.firstname AS prof_firstname, p.lastname AS prof_lastname,
                 u.userID, u.firstname AS user_firstname, u.lastname AS user_lastname, u.lastLogin AS user_lastLogin, u.createdAt AS user_createdAt, u.email AS user_email, u.role AS user_role
@@ -251,6 +254,7 @@ public class Repository {
                 String professorFirstName = resultSet.getString("prof_firstname");
                 String professorLastName = resultSet.getString("prof_lastname");
                 String uploaderId = resultSet.getString("userID");
+                String scan = resultSet.getString("scan");
                 User uploader = null;
                 if (uploaderId != null) {
                     String uploaderFirstName = resultSet.getString("user_firstname");
@@ -263,7 +267,7 @@ public class Repository {
                 }
                 Module module = new Module(moduleName, moduleId);
                 Professor professor = new Professor(professorId, professorFirstName, professorLastName);
-                Exam exam = new Exam(name, examId, moduleId, year, semester, uploadDate, fileId, uploaderId, ExamStatus.valueOf(status), professorId);
+                Exam exam = new Exam(name, examId, moduleId, year, semester, uploadDate, fileId, uploaderId, ExamStatus.valueOf(status), professorId, scan);
                 allExams.add(new AdminExamListDTO(module, exam, professor, uploader));
             }
             return allExams;
@@ -471,7 +475,7 @@ public class Repository {
         try (Connection connection = dbManager.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
                      SELECT e.examid, e.name, e.uploaddate, e.uploaderid, e.year,
-                            e.semester, e.fileid, e.status, e.professorid,
+                            e.semester, e.fileid, e.status, e.professorid, e.scan,
                             p.firstname, p.lastname
                      FROM exams e
                      LEFT JOIN professors p ON e.professorid = p.professorid
@@ -493,9 +497,10 @@ public class Repository {
                 String fileid = resultSet.getString("fileid");
                 ExamStatus status = ExamStatus.valueOf(resultSet.getString("status"));
                 String professorid = resultSet.getString("professorid");
+                String scan = resultSet.getString("scan");
                 String firstname = resultSet.getString("firstname");
                 String lastname = resultSet.getString("lastname");
-                Exam exam = new Exam(name, examid, moduleID, year, semester, uploadDate, fileid, uploaderid, status, professorid);
+                Exam exam = new Exam(name, examid, moduleID, year, semester, uploadDate, fileid, uploaderid, status, professorid, scan);
                 Professor professor = new Professor(professorid, firstname, lastname);
                 exams.add(new ProfessorExamDTO(exam, professor));
             }
@@ -661,7 +666,6 @@ public class Repository {
                 String module = resultSet.getString("module");
                 keywords.add(new KeyWord(keyword, module));
             }
-            refreshModuleSearchView();
             return keywords;
         } catch (SQLException e) {
             logger.error("Could not get keywords from database", e);
@@ -865,7 +869,7 @@ public class Repository {
         List<ProfessorExamDTO> topExams = new ArrayList<>();
         String query = """
             SELECT e.examid, e.name, e.moduleid, e.semester, e.year, e.uploaddate,
-                   e.fileid, e.uploaderid, e.status, e.professorid,
+                   e.fileid, e.uploaderid, e.status, e.professorid, e.scan,
                    p.firstname, p.lastname
             FROM (
                 SELECT examid, COUNT(examid) as dl_count
@@ -895,7 +899,8 @@ public class Repository {
                             rs.getString("fileid"),
                             rs.getString("uploaderid"),
                             ExamStatus.valueOf(rs.getString("status")),
-                            rs.getString("professorid")
+                            rs.getString("professorid"),
+                            rs.getString("scan")
                     );
 
                     Professor professor = null;
@@ -1007,6 +1012,44 @@ public class Repository {
             return emails;
         } catch (SQLException e) {
             logger.error("Could not get admin emails", e);
+            return List.of();
+        }
+    }
+
+    public List<Exam> queryExamsFilterByDateAndProf(int year, List<Professor> professors){
+        try(Connection connection = dbManager.getConnection();
+        PreparedStatement statement = connection.prepareStatement("""
+        SELECT
+            e.examID, e.name AS exam_name, e.semester, e.moduleid, e.year, e.uploadDate, e.fileID, e.status, e.uploaderid, e.scan,
+            p.professorID
+        FROM exams e
+        INNER JOIN professors p ON e.professorID = p.professorID
+        WHERE e.status = ? AND e.professorID = ANY(?) AND e.year >= ?
+        ORDER BY e.year DESC
+        LIMIT 3
+        """)){
+            statement.setString(1, ExamStatus.ACCEPTED.name());
+            statement.setArray(2, connection.createArrayOf("varchar", professors.stream().map(Professor::professorID).toArray(String[]::new)));
+            statement.setInt(3, year);
+            ResultSet set = statement.executeQuery();
+            List<Exam> exams = new ArrayList<>();
+            while(set.next()){
+                String examid = set.getString("examID");
+                String examName = set.getString("exam_name");
+                Semester semester = Semester.valueOf(set.getString("semester"));
+                int exam_year = set.getInt("year");
+                String moduleID = set.getString("moduleid");
+                Instant uploaddate = set.getTimestamp("uploaddate").toInstant();
+                String fileID = set.getString("fileID");
+                String uploaderID = set.getString("uploaderid");
+                ExamStatus status = ExamStatus.valueOf(set.getString("status"));
+                String profID = set.getString("professorID");
+                String scan = set.getString("scan");
+                exams.add(new Exam(examName, examid, moduleID, exam_year, semester, uploaddate, fileID, uploaderID, status, profID, scan));
+            }
+            return exams;
+        } catch (SQLException e){
+            logger.error("Could not query exams", e);
             return List.of();
         }
     }
