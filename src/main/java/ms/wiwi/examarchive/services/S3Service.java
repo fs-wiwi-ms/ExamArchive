@@ -1,6 +1,7 @@
 package ms.wiwi.examarchive.services;
 
 import io.minio.*;
+import io.minio.errors.MinioException;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.io.RandomAccessReadBufferedFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -171,6 +172,14 @@ public class S3Service {
                 sanitizedOutputFile.delete();
             }
             return false;
+        }
+    }
+
+    public byte[] downloadFile(String id, Bucket bucket){
+        try (GetObjectResponse response = s3client.getObject(GetObjectArgs.builder().bucket(bucket.bucketName).object(id).build())){
+            return response.readAllBytes();
+        } catch (IOException | MinioException e) {
+            throw new RuntimeException(e);
         }
     }
 
