@@ -107,7 +107,7 @@ public class AddExamController {
             pdf.delete();
             Professor professor = repository.getOrCreateProfessor(firstName, lastName);
             String examName = module.name() + "-" + semesterStr + "-" + yearStr;
-            Exam exam = new Exam(examName, examId, module.moduleID(), year, semester, Instant.now(), fileID, user.id(), ExamStatus.PENDING, professor.professorID());
+            Exam exam = new Exam(examName, examId, module.moduleID(), year, semester, Instant.now(), fileID, user.id(), ExamStatus.PENDING, professor.professorID(), null);
             repository.addExam(exam);
             List<String> adminEmails = repository.getAdminEmails();
             if(!adminEmails.isEmpty() && user.role() != Role.ADMIN){
