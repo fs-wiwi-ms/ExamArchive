@@ -10,6 +10,7 @@ import okhttp3.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -107,7 +108,7 @@ public class AIService {
                 updateJobStatusAndNotify(job, ExamAIStatus.GENERATING, onUpdate);
                 GenerationResult result = generateExamsFromList(exams);
                 if (!result.success()) {
-                    updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, "Could not generate exams. Please contact us");
+                    updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, result.error());
                     return;
                 }
                 updateJobStatusAndNotify(job, ExamAIStatus.COMPILING, onUpdate);
@@ -159,10 +160,12 @@ public class AIService {
         root.put("model", "Phi-4-reasoning");
         root.put("max_tokens", 10000);
         root.put("temperature", 0.35);
+
         ArrayNode messages = root.putArray("messages");
         ObjectNode systemMessage = messages.addObject();
         systemMessage.put("role", "system");
         systemMessage.put("content", genPrompt);
+
         ObjectNode userMessage = messages.addObject();
         userMessage.put("role", "user");
         StringBuilder userContent = new StringBuilder();
@@ -173,7 +176,9 @@ public class AIService {
             userContent.append("\n\n");
         }
         userMessage.put("content", userContent.toString());
-        logger.info("Generating exam. Request: " + mapper.writeValueAsString(root));
+
+        logger.info("Generating exam. Prompt length in chars: {}", userContent.length());
+
         Request request = new Request.Builder()
                 .url(aiEndpoint)
                 .addHeader("Content-Type", "application/json")
@@ -181,40 +186,57 @@ public class AIService {
                 .addHeader("Authorization", "Bearer " + apiKey)
                 .post(RequestBody.create(mapper.writeValueAsString(root), MediaType.parse("application/json")))
                 .build();
+
         genSemaphore.acquire();
-        try(Response response = httpClient.newCall(request).execute()){
-            if(!response.isSuccessful()){
-                logger.error("Error trying to call Azure: " + response.body().string());
-                throw new IOException("Unexpected code " + response);
+        try (Response response = httpClient.newCall(request).execute()) {
+            String responseBody = response.body() != null ? response.body().string() : "";
+
+            if (!response.isSuccessful()) {
+                logger.error("Azure AI call failed with HTTP {}: {}", response.code(), responseBody);
+                return GenerationResult.fail("Azure HTTP error " + response.code() + ": " + responseBody);
             }
-            JsonNode jsonNode = mapper.readTree(response.body().string());
+
+            JsonNode jsonNode = mapper.readTree(responseBody);
             if (jsonNode.has("error")) {
                 String errorMsg = jsonNode.get("error").path("message").asString("Unknown error");
-                throw new IllegalStateException("Azure error: " + errorMsg);
+                logger.error("Azure payload returned error: {}", errorMsg);
+                return GenerationResult.fail("Azure error: " + errorMsg);
             }
+
             JsonNode choices = jsonNode.path("choices");
             if (!choices.isArray() || choices.isEmpty()) {
-                throw new IllegalStateException("No answer found");
+                logger.error("Empty choices array in response: {}", responseBody);
+                return GenerationResult.fail("Model returned no choices");
             }
+
             JsonNode firstChoice = choices.get(0);
             String finishReason = firstChoice.path("finish_reason").asString("");
+
             if ("length".equalsIgnoreCase(finishReason)) {
-                throw new IllegalStateException("Generation is not complete. Stopped because of max tokens");
+                logger.error("Model generation truncated: max_tokens reached");
+                return GenerationResult.fail("Max tokens exceeded during generation");
             }
             if (!"stop".equalsIgnoreCase(finishReason)) {
-                throw new IllegalStateException("Unexpected generation stop: " + finishReason);
+                logger.error("Unexpected finish_reason: '{}'. Full choice: {}", finishReason, firstChoice);
+                return GenerationResult.fail("Unexpected stop condition: " + finishReason);
             }
+
             String rawContent = firstChoice.path("message").path("content").asString(null);
             if (rawContent == null || rawContent.isBlank()) {
-                throw new IllegalStateException("No content was found in model response");
+                logger.error("Empty content in model response. Raw: {}", responseBody);
+                return GenerationResult.fail("No content generated by model");
             }
+
             String latex = cleanLatex(rawContent);
             JsonNode usage = jsonNode.path("usage");
             int promptTokens = usage.path("prompt_tokens").asInt(0);
             int completionTokens = usage.path("completion_tokens").asInt(0);
-            return new GenerationResult(true, latex, promptTokens, completionTokens);
-        } catch (RuntimeException | IOException e) {
-            return new GenerationResult(false, null, 0, 0);
+
+            return new GenerationResult(true, latex, promptTokens, completionTokens, null);
+
+        } catch (Exception e) {
+            logger.error("Exception occurred during exam generation", e);
+            return GenerationResult.fail("Generation exception: " + e.getMessage());
         } finally {
             genSemaphore.release();
         }
@@ -267,7 +289,7 @@ public class AIService {
             PDFRenderer renderer = new PDFRenderer(document);
             int pageCount = document.getNumberOfPages();
             for (int page = 0; page < pageCount; page++) {
-                BufferedImage image = renderer.renderImageWithDPI(page, 150);
+                BufferedImage image = renderer.renderImageWithDPI(page, 150, ImageType.RGB);
                 try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
                     ImageIO.write(image, "JPEG", baos);
                     images.add(baos.toByteArray());
@@ -301,6 +323,7 @@ public class AIService {
             imageUrl.put("url", "data:image/jpeg;base64," +  Base64.getEncoder().encodeToString(image));
             imageUrl.put("detail", "high");
         }
+        messages.add(userMessage);
         Request request = new Request.Builder()
                 .url(aiEndpoint)
                 .addHeader("Content-Type", "application/json")
@@ -389,7 +412,10 @@ public class AIService {
         }
     }
 
-    private record GenerationResult(boolean success, String latex, int inputToken, int outputToken) {
+    private record GenerationResult(boolean success, String latex, int inputToken, int outputToken, String error) {
+        public static GenerationResult fail(String error) {
+            return new GenerationResult(false, null, 0, 0, error);
+        }
     }
 
     private record CompilationResult(boolean success, byte[] pdfFile) {
