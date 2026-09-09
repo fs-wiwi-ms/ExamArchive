@@ -98,7 +98,7 @@
                         </div>
                     </fieldset>
                     <div class="form-actions">
-                        <button hx-post="/exams/module/${moduleid}/examai" hx-target="#main-content"->Klausur generieren</button>
+                        <button hx-post="/exams/module/${moduleid}/examai" hx-target="#main-content">Klausur generieren</button>
                     </div>
 
                 </form>
