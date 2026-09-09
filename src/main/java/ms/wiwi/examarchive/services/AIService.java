@@ -304,7 +304,7 @@ public class AIService {
         ObjectNode root = mapper.createObjectNode();
         root.put("model", "Kimi-K2.6");
         root.put("temperature", 0.1);
-        root.put("max_tokens", 8000);
+        root.put("max_tokens", 16000);
         ArrayNode messages = root.putArray("messages");
         ObjectNode systemMessage = mapper.createObjectNode();
         systemMessage.put("role", "system");
@@ -345,6 +345,7 @@ public class AIService {
                    throw new RuntimeException("Invalid Finish Reason: " + finishReason);
                 }
                 markdown = responseRoot.path("choices").path(0).path("message").path("content").asString();
+                logger.info("Exam scan: " + response.body().string());
             } catch (RuntimeException e) {
                 throw new RuntimeException(e);
             }
@@ -356,7 +357,6 @@ public class AIService {
         }
         Exam scannedExam = new Exam(exam.name(), exam.examID(), exam.moduleID(), exam.year(), exam.semester(), exam.uploadDate(), exam.fileID(), exam.uploaderID(), exam.status(), exam.professorID(), markdown);
         repository.updateExam(scannedExam);
-        logger.info("Exam scan: " + scannedExam.scan());
     }
 
     /**
