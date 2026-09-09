@@ -29,26 +29,21 @@ import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 public class AIService {
     private static final Logger logger = LoggerFactory.getLogger(AIService.class);
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+    private static final Semaphore scanSemaphore = new Semaphore(3);
+    private static final Semaphore genSemaphore = new Semaphore(3);
+    private final Map<String, ExamAIJob> jobs = new ConcurrentHashMap<>();
     private final Repository repository;
     private final S3Service s3Service;
     private final OkHttpClient httpClient;
     private final JsonMapper mapper;
-    private static final Semaphore scanSemaphore = new Semaphore(3);
-    private static final Semaphore genSemaphore = new Semaphore(3);
     private final String aiEndpoint;
     private final String apiKey;
     private final String restlatexURL;
@@ -89,8 +84,9 @@ public class AIService {
 
     public String generateExam(int untilYear, List<Professor> professors, User user, Consumer<ExamAIJob> onUpdate) {
         String id = UUID.randomUUID().toString();
+        ExamAIJob job = new ExamAIJob(id, ExamAIStatus.FETCH_EXAMS);
+        jobs.put(id, job);
         executor.submit(() -> {
-            ExamAIJob job = new ExamAIJob(id, ExamAIStatus.FETCH_EXAMS);
             try {
                 onUpdate.accept(job);
                 List<Exam> exams = repository.queryExamsFilterByDateAndProf(untilYear, professors);
@@ -153,12 +149,12 @@ public class AIService {
                 throw new RuntimeException(e);
             }
         } catch (Exception e) {
-            logger.error("Failed to compile exam.", e);
+            logger.error("Failed to compile exam. Latex: " + latex, e);
             return new CompilationResult(false, null);
         }
     }
 
-    private GenerationResult generateExamsFromList(List<Exam> exams) {
+    private GenerationResult generateExamsFromList(List<Exam> exams) throws InterruptedException {
         ObjectNode root = mapper.createObjectNode();
         root.put("model", "Phi-4-reasoning");
         root.put("max_tokens", 10000);
@@ -177,6 +173,7 @@ public class AIService {
             userContent.append("\n\n");
         }
         userMessage.put("content", userContent.toString());
+        logger.info("Generating exam. Request: " + mapper.writeValueAsString(root));
         Request request = new Request.Builder()
                 .url(aiEndpoint)
                 .addHeader("Content-Type", "application/json")
@@ -184,7 +181,7 @@ public class AIService {
                 .addHeader("Authorization", "Bearer " + apiKey)
                 .post(RequestBody.create(mapper.writeValueAsString(root), MediaType.parse("application/json")))
                 .build();
-
+        genSemaphore.acquire();
         try(Response response = httpClient.newCall(request).execute()){
             if(!response.isSuccessful()){
                 logger.error("Error trying to call Azure: " + response.body().string());
@@ -218,6 +215,8 @@ public class AIService {
             return new GenerationResult(true, latex, promptTokens, completionTokens);
         } catch (RuntimeException | IOException e) {
             return new GenerationResult(false, null, 0, 0);
+        } finally {
+            genSemaphore.release();
         }
     }
 
@@ -261,6 +260,7 @@ public class AIService {
      * @param exam Exam to scan
      */
     private void scanExamWithAI(Exam exam) { //TODO: Refactor this and S3service pdf serialization to PDFService
+        logger.info("Scanning exam " + exam.name());
         byte[] rawFileData = s3Service.downloadFile(exam.fileID(), S3Service.Bucket.EXAMS);
         List<byte[]> images = new ArrayList<>();
         try (PDDocument document = Loader.loadPDF(rawFileData)) {
@@ -333,6 +333,7 @@ public class AIService {
         }
         Exam scannedExam = new Exam(exam.name(), exam.examID(), exam.moduleID(), exam.year(), exam.semester(), exam.uploadDate(), exam.fileID(), exam.uploaderID(), exam.status(), exam.professorID(), markdown);
         repository.updateExam(scannedExam);
+        logger.info("Exam scan: " + scannedExam.scan());
     }
 
     /**
@@ -369,16 +370,32 @@ public class AIService {
     }
 
     private void updateJobStatusAndNotify(ExamAIJob job, ExamAIStatus status, Consumer<ExamAIJob> onUpdate, String error) {
-        job.status(status);
+        jobs.put(job.id(), job);
         if (error != null) {
             job.errorMessage(error);
         }
+        job.status(status);
         onUpdate.accept(job);
+        if (status == ExamAIStatus.DONE || status == ExamAIStatus.FAILED) {
+            String jobId = job.id();
+            Thread.ofVirtual().name("job-cleanup-" + jobId).start(() -> {
+                try {
+                    Thread.sleep(Duration.ofMinutes(15));
+                } catch (InterruptedException _) {
+                } finally {
+                    jobs.remove(jobId);
+                }
+            });
+        }
     }
 
     private record GenerationResult(boolean success, String latex, int inputToken, int outputToken) {
     }
 
     private record CompilationResult(boolean success, byte[] pdfFile) {
+    }
+
+    public ExamAIJob getJob(String id) {
+        return jobs.get(id);
     }
 }
