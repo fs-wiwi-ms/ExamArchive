@@ -19,6 +19,7 @@ import org.eclipse.jetty.http.HttpCookie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Locale;
@@ -40,6 +41,7 @@ public class ExamArchive {
     private final S3Service s3Service;
     private final MotdService motdService;
     private final EmailService emailService;
+    private final AIService aiService;
     private final Logger logger = LoggerFactory.getLogger(ExamArchive.class);
 
     public ExamArchive(){
@@ -91,6 +93,18 @@ public class ExamArchive {
             logger.error("Could not connect to SMTP server. Proceed starting without email service.");
         }
         logger.info("Email service initialized");
+        logger.info("Initializing AI service");
+        try {
+            aiService = new AIService(
+                    repository,
+                    s3Service,
+                    System.getenv("EXAMARCHIVE_AI_ENDPOINT"),
+                    System.getenv("EXAMARCHIVE_AI_APIKEY"),
+                    System.getenv("EXAMARCHIVE_RESTLATEX_URL"));
+        } catch (IOException e) {
+            throw new RuntimeException("Clould not initialize AI service", e);
+        }
+        logger.info("AI service initialized. Ready to start!");
     }
 
     /**
@@ -119,7 +133,7 @@ public class ExamArchive {
             ShowModuleController showModuleHandler = new ShowModuleController(repository);
             config.routes.get("/exams/module/{moduleid}", showModuleHandler::handleGet);
             config.routes.post("/exams/module/{moduleid}/filter", showModuleHandler::handleFilter);
-            ExamAIController examAIController = new ExamAIController(repository);
+            ExamAIController examAIController = new ExamAIController(repository, aiService);
             config.routes.get("/exams/module/{moduleid}/examai", examAIController::handleGet);
             config.routes.post("/exams/module/{moduleid}/examai", examAIController::handlePost);
             config.routes.sse("/exams/ai/job/{jobid}", examAIController::handleSse);

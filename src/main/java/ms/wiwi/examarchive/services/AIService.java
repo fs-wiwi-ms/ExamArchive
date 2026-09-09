@@ -5,6 +5,7 @@ import ms.wiwi.examarchive.ai.ExamAIJob;
 import ms.wiwi.examarchive.ai.ExamAIStatus;
 import ms.wiwi.examarchive.model.Exam;
 import ms.wiwi.examarchive.model.Professor;
+import ms.wiwi.examarchive.model.User;
 import okhttp3.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.pdfbox.Loader;
@@ -24,6 +25,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -43,21 +46,25 @@ public class AIService {
     private final Repository repository;
     private final S3Service s3Service;
     private final OkHttpClient httpClient;
+    private final JsonMapper mapper;
     private static final Semaphore scanSemaphore = new Semaphore(3);
     private static final Semaphore genSemaphore = new Semaphore(3);
     private final String aiEndpoint;
     private final String apiKey;
+    private final String restlatexURL;
     private String scanPrompt;
     private String genPrompt;
 
-    public AIService(Repository repository, S3Service s3Service, String openAIEndpoint, String apiKey) throws IOException {
+    public AIService(Repository repository, S3Service s3Service, String openAIEndpoint, String apiKey, String restlatexURL) throws IOException {
         this.repository = repository;
         this.s3Service = s3Service;
+        this.restlatexURL = restlatexURL;
+        this.mapper = new JsonMapper();
         this.aiEndpoint = openAIEndpoint;
         this.apiKey = apiKey;
         this.httpClient = new OkHttpClient.Builder().callTimeout(Duration.of(6, ChronoUnit.MINUTES)).readTimeout(Duration.of(5, ChronoUnit.MINUTES)).connectTimeout(Duration.of(15, ChronoUnit.SECONDS)).connectionPool(new ConnectionPool(10, 6, TimeUnit.MINUTES)).build();
-        try (InputStream scanPromptStream = AIService.class.getResourceAsStream("promts/scan.md");
-             InputStream genPromptStream = AIService.class.getResourceAsStream("prompts/gen.md")) {
+        try (InputStream scanPromptStream = AIService.class.getResourceAsStream("/prompts/scan.md");
+             InputStream genPromptStream = AIService.class.getResourceAsStream("/prompts/gen.md")) {
             scanPrompt = IOUtils.toString(scanPromptStream, StandardCharsets.UTF_8);
             genPrompt = IOUtils.toString(genPromptStream, StandardCharsets.UTF_8);
         } catch (RuntimeException e) {
@@ -80,9 +87,10 @@ public class AIService {
      */
 
 
-    public void generateExam(int untilYear, List<Professor> professors, Consumer<ExamAIJob> onUpdate) {
+    public String generateExam(int untilYear, List<Professor> professors, User user, Consumer<ExamAIJob> onUpdate) {
+        String id = UUID.randomUUID().toString();
         executor.submit(() -> {
-            ExamAIJob job = new ExamAIJob(UUID.randomUUID().toString(), ExamAIStatus.FETCH_EXAMS);
+            ExamAIJob job = new ExamAIJob(id, ExamAIStatus.FETCH_EXAMS);
             try {
                 onUpdate.accept(job);
                 List<Exam> exams = repository.queryExamsFilterByDateAndProf(untilYear, professors);
@@ -114,18 +122,117 @@ public class AIService {
                     return;
                 }
                 updateJobStatusAndNotify(job, ExamAIStatus.UPLOADING, onUpdate);
-                boolean uploadSuccess = uploadUserExam(compilationResult.exam(), job.id());
+                boolean uploadSuccess = uploadUserExamAndSaveToDB(compilationResult.pdfFile(), job.id(), user, result.inputToken(), result.outputToken());
                 if (!uploadSuccess) {
                     updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, "Could not upload exam");
                     return;
                 }
                 updateJobStatusAndNotify(job, ExamAIStatus.DONE, onUpdate);
-            } catch (RuntimeException e) {
+            } catch (Exception e) {
                 logger.error(e.getMessage(), e);
                 updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, e.getMessage());
-                return;
             }
         });
+        return id;
+    }
+
+    private CompilationResult compileExam(String latex) {
+        try {
+            Request request = new Request.Builder()
+                    .url(restlatexURL + "/api/compile")
+                    .post(RequestBody.create(latex, MediaType.parse("text/plain")))
+                    .build();
+            try(Response response = httpClient.newCall(request).execute()){
+                if(!response.isSuccessful()){
+                    logger.error("Error trying to compile exam: " + response.body().string());
+                    throw new IOException("Unexpected code " + response);
+                }
+                byte[] bytes = response.body().bytes();
+                return new CompilationResult(true, bytes);
+            } catch (RuntimeException e) {
+                throw new RuntimeException(e);
+            }
+        } catch (Exception e) {
+            logger.error("Failed to compile exam.", e);
+            return new CompilationResult(false, null);
+        }
+    }
+
+    private GenerationResult generateExamsFromList(List<Exam> exams) {
+        ObjectNode root = mapper.createObjectNode();
+        root.put("model", "Phi-4-reasoning");
+        root.put("max_tokens", 10000);
+        root.put("temperature", 0.35);
+        ArrayNode messages = root.putArray("messages");
+        ObjectNode systemMessage = messages.addObject();
+        systemMessage.put("role", "system");
+        systemMessage.put("content", genPrompt);
+        ObjectNode userMessage = messages.addObject();
+        userMessage.put("role", "user");
+        StringBuilder userContent = new StringBuilder();
+        userContent.append("Generate a new, equivalent exam based on the reference exams provided below.\n\n");
+        for (int i = 0; i < exams.size(); i++) {
+            Exam exam = exams.get(i);
+            userContent.append("Exam #").append(i + 1).append(" [year=").append(exam.year()).append("] : ").append(exam.scan());
+            userContent.append("\n\n");
+        }
+        userMessage.put("content", userContent.toString());
+        Request request = new Request.Builder()
+                .url(aiEndpoint)
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Accept", "application/json")
+                .addHeader("Authorization", "Bearer " + apiKey)
+                .post(RequestBody.create(mapper.writeValueAsString(root), MediaType.parse("application/json")))
+                .build();
+
+        try(Response response = httpClient.newCall(request).execute()){
+            if(!response.isSuccessful()){
+                logger.error("Error trying to call Azure: " + response.body().string());
+                throw new IOException("Unexpected code " + response);
+            }
+            JsonNode jsonNode = mapper.readTree(response.body().string());
+            if (jsonNode.has("error")) {
+                String errorMsg = jsonNode.get("error").path("message").asString("Unknown error");
+                throw new IllegalStateException("Azure error: " + errorMsg);
+            }
+            JsonNode choices = jsonNode.path("choices");
+            if (!choices.isArray() || choices.isEmpty()) {
+                throw new IllegalStateException("No answer found");
+            }
+            JsonNode firstChoice = choices.get(0);
+            String finishReason = firstChoice.path("finish_reason").asString("");
+            if ("length".equalsIgnoreCase(finishReason)) {
+                throw new IllegalStateException("Generation is not complete. Stopped because of max tokens");
+            }
+            if (!"stop".equalsIgnoreCase(finishReason)) {
+                throw new IllegalStateException("Unexpected generation stop: " + finishReason);
+            }
+            String rawContent = firstChoice.path("message").path("content").asString(null);
+            if (rawContent == null || rawContent.isBlank()) {
+                throw new IllegalStateException("No content was found in model response");
+            }
+            String latex = cleanLatex(rawContent);
+            JsonNode usage = jsonNode.path("usage");
+            int promptTokens = usage.path("prompt_tokens").asInt(0);
+            int completionTokens = usage.path("completion_tokens").asInt(0);
+            return new GenerationResult(true, latex, promptTokens, completionTokens);
+        } catch (RuntimeException | IOException e) {
+            return new GenerationResult(false, null, 0, 0);
+        }
+    }
+
+    private static String cleanLatex(String input) {
+        String cleaned = input;
+        cleaned = cleaned.replaceAll("(?s)<think>.*?</think>", "");
+        cleaned = cleaned.trim();
+        if (cleaned.startsWith("```")) {
+            cleaned = cleaned.replaceFirst("^```[a-zA-Z]*\\R?", "");
+            if (cleaned.endsWith("```")) {
+                cleaned = cleaned.substring(0, cleaned.length() - 3);
+            }
+            cleaned = cleaned.trim();
+        }
+        return cleaned;
     }
 
     private boolean scanExams(List<Exam> examsWithoutScan) {
@@ -154,7 +261,7 @@ public class AIService {
      * @param exam Exam to scan
      */
     private void scanExamWithAI(Exam exam) { //TODO: Refactor this and S3service pdf serialization to PDFService
-        byte[] rawFileData = s3Service.downloadFile(exam.examID(), S3Service.Bucket.EXAMS);
+        byte[] rawFileData = s3Service.downloadFile(exam.fileID(), S3Service.Bucket.EXAMS);
         List<byte[]> images = new ArrayList<>();
         try (PDDocument document = Loader.loadPDF(rawFileData)) {
             PDFRenderer renderer = new PDFRenderer(document);
@@ -172,7 +279,6 @@ public class AIService {
             logger.error("Error while converting PDF to JPEG", e);
             throw new RuntimeException(e);
         }
-        JsonMapper mapper = new JsonMapper();
         ObjectNode root = mapper.createObjectNode();
         root.put("model", "Kimi-K2.6");
         root.put("temperature", 0.1);
@@ -206,6 +312,7 @@ public class AIService {
         try {
             try (Response response = httpClient.newCall(request).execute()) {
                 if(!response.isSuccessful()) {
+                    logger.error("Could not scan exam " + exam.name() + ": " + response.body().string());
                     throw new IOException("Unexpected code " + response);
                 }
                 JsonNode responseRoot = mapper.readTree(response.body().string());
@@ -231,11 +338,30 @@ public class AIService {
     /**
      * Uploads the exam to a user exam specific bucket and writes it to the db
      *
-     * @param exam Exam to upload
+     * @param pdfFile Exam to upload
      * @return true if successfull
      */
-    private boolean uploadUserExam(File exam, String id) {
-        return false;
+    private boolean uploadUserExamAndSaveToDB(byte[] pdfFile, String id, User user, int inputToken, int outputToken) {
+        File tempfile = null;
+        boolean success;
+        try {
+            tempfile = File.createTempFile(id, ".pdf");
+            Files.write(tempfile.toPath(), pdfFile, StandardOpenOption.APPEND, StandardOpenOption.CREATE);
+            s3Service.uploadPDF(tempfile, id, S3Service.Bucket.USER_EXAMS);
+            success = true;
+            repository.addUserExam(id, user, inputToken, outputToken);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (tempfile != null) {
+                try {
+                    Files.deleteIfExists(tempfile.toPath());
+                } catch (IOException e) {
+                    logger.error("Could not delete temp file " + tempfile.getAbsolutePath(), e);
+                }
+            }
+        }
+        return success;
     }
 
     private void updateJobStatusAndNotify(ExamAIJob job, ExamAIStatus status, Consumer<ExamAIJob> onUpdate) {
@@ -253,6 +379,6 @@ public class AIService {
     private record GenerationResult(boolean success, String latex, int inputToken, int outputToken) {
     }
 
-    private record CompilationResult(boolean success, File exam) {
+    private record CompilationResult(boolean success, byte[] pdfFile) {
     }
 }
