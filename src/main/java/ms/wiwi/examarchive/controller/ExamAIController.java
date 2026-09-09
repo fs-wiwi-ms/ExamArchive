@@ -8,17 +8,25 @@ import io.javalin.http.sse.SseClient;
 import ms.wiwi.examarchive.Repository;
 import ms.wiwi.examarchive.ai.ExamAIJob;
 import ms.wiwi.examarchive.ai.ExamAIStatus;
+import ms.wiwi.examarchive.model.Professor;
+import ms.wiwi.examarchive.model.User;
+import ms.wiwi.examarchive.services.AIService;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class ExamAIController {
 
     private final Repository repository;
     private final TemplateEngine templateEngine;
+    private final AIService aiService;
+    private final HashMap<String, SseClient>  sseClients = new HashMap<>();
 
-    public ExamAIController(Repository repo) {
+    public ExamAIController(Repository repo, AIService aiService) {
         this.repository = repo;
+        this.aiService = aiService;
         this.templateEngine = TemplateEngine.createPrecompiled(ContentType.Html);
     }
 
@@ -27,51 +35,48 @@ public class ExamAIController {
         context.render("generateExam.jte", Map.of("professors", repository.searchProfessorsForModule(moduleID, null, null), "moduleid",moduleID));
     }
 
-    ExamAIJob testJob = new ExamAIJob("123", ExamAIStatus.FETCH_EXAMS);
-
     public void handlePost(@NotNull Context context) {
         //TODO Handle rate limit
-        context.render("examAILoading.jte", Map.of("job", testJob, "isSseWrapper", true));
+        String moduleID = context.pathParam("moduleid");
+        int year = 0;
+        if(context.formParam("year") != null) {
+            try {
+                year = Integer.parseInt(context.formParam("year"));
+            } catch (NumberFormatException _) {
+
+            }
+        }
+        List<String> profIDs = context.formParams("profid");
+        List<Professor> professors = repository.searchProfessorsForModule(moduleID, null, null);
+        professors = professors.stream().filter(professor -> profIDs.contains(professor.professorID())).toList();
+        User user = context.sessionAttribute("user");
+        String jobID = aiService.generateExam(year, professors, user, job -> {
+            SseClient sseClient = sseClients.get(moduleID);
+            if (sseClient == null) {
+                return;
+            }
+            sseClient.sendEvent("message", renderJob(job));
+            if(job.status() == ExamAIStatus.DONE || job.status() == ExamAIStatus.FAILED) {
+                sseClient.close();
+            }
+        });
+        context.render("examAILoading.jte", Map.of("job", new ExamAIJob(jobID, ExamAIStatus.FETCH_EXAMS), "isSseWrapper", true));
     }
 
     public void handleSse(@NotNull SseClient client) {
         String jobID = client.ctx().pathParam("jobid");
         client.keepAlive();
-        new Thread(() -> {
-            try {
-                System.out.println("Start");
-                Thread.sleep(3000);
-                testJob.status(ExamAIStatus.SCAN);
-                client.sendEvent("message", renderJob(testJob));
-                System.out.println("GEBBBBB");
-                Thread.sleep(3000);
-                testJob.status(ExamAIStatus.GENERATING);
-                client.sendEvent("message", renderJob(testJob));
-                Thread.sleep(3000);
-                testJob.status(ExamAIStatus.COMPILING);
-                client.sendEvent("message", renderJob(testJob));
-                Thread.sleep(3000);
-                testJob.status(ExamAIStatus.DONE);
-                client.sendEvent("message", renderJob(testJob));
-                Thread.sleep(3000);
-                testJob.status(ExamAIStatus.FAILED);
-                client.sendEvent("message", renderJob(testJob));
-                Thread.sleep(3000);
-                testJob.status(ExamAIStatus.FAILED);
-                testJob.errorMessage("Tja, da haben wir den salat");
-                client.sendEvent("message", renderJob(testJob));
-                Thread.sleep(6000);
-                client.close();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-                throw new RuntimeException(e);
-            }
-        }).start();
+        if(!sseClients.containsKey(jobID)) {
+            sseClients.put(jobID, client);
+        } else {
+            client.close();
+        }
+        client.onClose(() -> sseClients.remove(jobID));
     }
 
     private String renderJob(ExamAIJob job) {
         StringOutput output = new StringOutput();
-        templateEngine.render("examAILoading.jte", Map.of("job", testJob), output);
+        templateEngine.render("examAILoading.jte", Map.of("job", job), output);
         return output.toString();
     }
 }

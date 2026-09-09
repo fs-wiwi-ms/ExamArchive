@@ -1053,4 +1053,28 @@ public class Repository {
             return List.of();
         }
     }
+
+    /**
+     * Adds an entry to the user_exams table
+     * @param id user exam id
+     * @param user user id
+     * @param inputToken tokens it took as input
+     * @param outputToken tokens it took as output
+     */
+    public void addUserExam(String id, User user, int inputToken, int outputToken) {
+        try(Connection connection = dbManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement("""
+            INSERT INTO user_exams(id, user_id, creation_date, file_id, input_tokens, output_tokens) VALUES (?, ?, ?, ?, ?, ?);
+            """)){
+            statement.setString(1, id);
+            statement.setString(2, user.id());
+            statement.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
+            statement.setString(4, id);
+            statement.setInt(5, inputToken);
+            statement.setInt(6, outputToken);
+            statement.execute();
+        } catch (SQLException e) {
+            logger.error("Could not add user exam", e);
+        }
+    }
 }
