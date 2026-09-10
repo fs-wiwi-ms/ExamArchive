@@ -48,13 +48,35 @@
             margin-bottom: 0;
         }
         .full-width-mobile {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
             width: 100%;
+        }
+        .full-width-mobile > form,
+        .full-width-mobile > a,
+        .full-width-mobile > button {
+            width: 100%;
+            margin-bottom: 0;
+        }
+        .full-width-mobile > a:not([role="button"]),
+        .full-width-mobile > a:not([role="button"]):hover {
+            text-decoration: none;
+            color: inherit;
         }
         @media (min-width: 768px) {
             .full-width-mobile {
+                flex-direction: row;
+                align-items: center;
+                width: auto;
+            }
+            .full-width-mobile > form,
+            .full-width-mobile > a,
+            .full-width-mobile > button {
                 width: auto;
             }
         }
+
         .filter-dropdown {
             margin-bottom: 0;
         }
@@ -92,6 +114,9 @@
         </div>
 
         <div class="full-width-mobile">
+            <a href="/exams/module/${module.moduleID()}/examai" role="button" class="outline">
+                ${JteLocalizer.get("module.generate")}
+            </a>
             <form hx-post="/exams/module/${module.moduleID()}/filter"
                   hx-target="#results"
                   hx-trigger="change">

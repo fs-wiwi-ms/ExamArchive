@@ -49,12 +49,16 @@ services:
       EXAMARCHIVE_STORAGE_ACCESS_KEY: "admin"
       EXAMARCHIVE_STORAGE_SECRET_KEY: "password123"
       EXAMARCHIVE_STORAGE_BUCKET: "exam-archive"
+      EXAMARCHIVE_USER_STORAGE_BUCKET: "exam-archive-user-content"
       EXAMARCHIVE_SMTP_HOST: ${EXAMARCHIVE_SMTP_HOST}
       EXAMARCHIVE_SMTP_PORT: ${EXAMARCHIVE_SMTP_PORT}
       EXAMARCHIVE_SMTP_USERNAME: ${EXAMARCHIVE_SMTP_USERNAME}
       EXAMARCHIVE_SMTP_PASSWORD: ${EXAMARCHIVE_SMTP_PASSWORD}
       EXAMARCHIVE_SMTP_FROM: ${EXAMARCHIVE_SMTP_FROM}
+      EXAMARCHIVE_AI_ENDPOINT: ${EXAMARCHIVE_AI_ENDPOINT}
+      EXAMARCHIVE_AI_APIKEY: ${EXAMARCHIVE_AI_APIKEY}
       EXAMARCHIVE_ADMIN_EMAIL: "@localhost.local"
+      EXAMARCHIVE_RESTLATEX_URL: "http://restlatex:8000"
   storage:
     image: minio/minio:latest
     container_name: minio-local
@@ -105,6 +109,34 @@ services:
             }
           ]
         }
+
+  restlatex:
+    image: ghcr.io/fs-wiwi-ms/restlatex:latest
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=512m
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=unconfined
+      - apparmor=unconfined
+    cap_drop:
+      - ALL
+    cap_add:
+      - SYS_ADMIN
+    restart: unless-stopped
+    mem_limit: 2048m
+    cpus: 2.0
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      - RESTLATEX_TIMEOUT_SECONDS=30
+      - RESTLATEX_MAX_MEMORY_MB=512
+      - RESTLATEX_MAX_FILE_SIZE_MB=50
+
 volumes:
   postgres_data:
   minio-data:
