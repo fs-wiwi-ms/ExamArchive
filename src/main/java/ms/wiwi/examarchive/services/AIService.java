@@ -304,7 +304,7 @@ public class AIService {
         ObjectNode root = mapper.createObjectNode();
         root.put("model", "gpt-5-mini");
         root.put("temperature", 0.1);
-        root.put("max_tokens", 20000);
+        root.put("max_completion_tokens", 20000);
         root.put("reasoning_effort", "low");
         ArrayNode messages = root.putArray("messages");
         ObjectNode systemMessage = mapper.createObjectNode();
