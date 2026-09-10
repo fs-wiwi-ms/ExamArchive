@@ -277,7 +277,7 @@ public class AIService {
     }
 
     /**
-     * Scan the exam with a Kimi model and saves the scanned exam to the db
+     * Scan the exam with a GPT model and saves the scanned exam to the db
      *
      * @param exam Exam to scan
      */
@@ -302,9 +302,10 @@ public class AIService {
             throw new RuntimeException(e);
         }
         ObjectNode root = mapper.createObjectNode();
-        root.put("model", "Kimi-K2.6");
+        root.put("model", "gpt-5-mini");
         root.put("temperature", 0.1);
-        root.put("max_tokens", 16000);
+        root.put("max_tokens", 20000);
+        root.put("reasoning_effort", "low");
         ArrayNode messages = root.putArray("messages");
         ObjectNode systemMessage = mapper.createObjectNode();
         systemMessage.put("role", "system");
