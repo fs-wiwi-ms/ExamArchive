@@ -50,8 +50,7 @@ public class ExamAIController {
         List<Professor> professors = repository.searchProfessorsForModule(moduleID, null, null);
         professors = professors.stream().filter(professor -> profIDs.contains(professor.professorID())).toList();
         User user = context.sessionAttribute("user");
-
-        String jobID = aiService.generateExam(year, professors, user, job -> {
+        String jobID = aiService.generateExam(year, professors, moduleID, user, job -> {
             SseClient sseClient = sseClients.get(job.id());
             if (sseClient == null) {
                 return;
@@ -62,7 +61,8 @@ public class ExamAIController {
             }
         });
         context.render("examAILoading.jte", Map.of(
-                "job", new ExamAIJob(jobID, ExamAIStatus.FETCH_EXAMS),
+                "job", new ExamAIJob(jobID, moduleID, ExamAIStatus.FETCH_EXAMS),
+                "moduleid", moduleID,
                 "isSseWrapper", true
         ));
     }

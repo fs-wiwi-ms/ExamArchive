@@ -17,6 +17,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+
   app:
     build:
       context: .
@@ -58,7 +59,11 @@ services:
       EXAMARCHIVE_AI_ENDPOINT: ${EXAMARCHIVE_AI_ENDPOINT}
       EXAMARCHIVE_AI_APIKEY: ${EXAMARCHIVE_AI_APIKEY}
       EXAMARCHIVE_ADMIN_EMAIL: "@localhost.local"
-      EXAMARCHIVE_RESTLATEX_URL: "http://restlatex:8000"
+      EXAMARCHIVE_DOCKER_RUNTIME: "runc"
+      EXAMARCHIVE_DOCKER_SOCK: "unix:///var/run/docker.sock"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+
   storage:
     image: minio/minio:latest
     container_name: minio-local
@@ -71,6 +76,7 @@ services:
     volumes:
       - minio-data:/data
     command: server /data --console-address ":9001"
+
   oidc-mock:
     image: ghcr.io/navikt/mock-oauth2-server:2.1.0
     container_name: oidc-mock
@@ -109,33 +115,6 @@ services:
             }
           ]
         }
-
-  restlatex:
-    image: ghcr.io/fs-wiwi-ms/restlatex:latest
-    user: "10001:10001"
-    read_only: true
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=512m
-    security_opt:
-      - no-new-privileges:true
-      - seccomp=unconfined
-      - apparmor=unconfined
-    cap_drop:
-      - ALL
-    cap_add:
-      - SYS_ADMIN
-    restart: unless-stopped
-    mem_limit: 2048m
-    cpus: 2.0
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    environment:
-      - RESTLATEX_TIMEOUT_SECONDS=30
-      - RESTLATEX_MAX_MEMORY_MB=512
-      - RESTLATEX_MAX_FILE_SIZE_MB=50
 
 volumes:
   postgres_data:

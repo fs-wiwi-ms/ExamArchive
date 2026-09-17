@@ -35,6 +35,9 @@ dependencies {
     implementation("tools.jackson.core:jackson-databind:3.2.2")
     //MAIL
     implementation("com.sun.mail:jakarta.mail:2.0.2")
+    //DOCKER
+    implementation("com.github.docker-java:docker-java-core:3.7.0")
+    implementation("com.github.docker-java:docker-java-transport-httpclient5:3.7.0")
 }
 
 jte {
