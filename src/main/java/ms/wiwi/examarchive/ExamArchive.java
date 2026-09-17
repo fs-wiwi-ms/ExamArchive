@@ -42,6 +42,7 @@ public class ExamArchive {
     private final MotdService motdService;
     private final EmailService emailService;
     private final AIService aiService;
+    private final QuartoSandboxService quartoSandboxService;
     private final Logger logger = LoggerFactory.getLogger(ExamArchive.class);
 
     public ExamArchive(){
@@ -93,14 +94,20 @@ public class ExamArchive {
             logger.error("Could not connect to SMTP server. Proceed starting without email service.");
         }
         logger.info("Email service initialized");
+        logger.info("Initializing Quarto sandbox service");
+        quartoSandboxService = new QuartoSandboxService(
+                System.getenv("EXAMARCHIVE_DOCKER_SOCK"),
+                System.getenv("EXAMARCHIVE_DOCKER_RUNTIME")
+        );
+        logger.info("Quarto sandbox service initialized");
         logger.info("Initializing AI service");
         try {
             aiService = new AIService(
                     repository,
                     s3Service,
+                    quartoSandboxService,
                     System.getenv("EXAMARCHIVE_AI_ENDPOINT"),
-                    System.getenv("EXAMARCHIVE_AI_APIKEY"),
-                    System.getenv("EXAMARCHIVE_RESTLATEX_URL"));
+                    System.getenv("EXAMARCHIVE_AI_APIKEY"));
         } catch (IOException e) {
             throw new RuntimeException("Clould not initialize AI service", e);
         }
@@ -169,6 +176,7 @@ public class ExamArchive {
             config.routes.get("/admin/settings", adminSettingsController::handleGet);
             config.routes.post("/admin/updatemotd", adminSettingsController::handleUpdateMotdPost);
             config.routes.get("/dropdown", new HeaderController());
+            config.routes.get("/exams/usercontent/download/{userexamid}", new UserExamDownloadController(repository, s3Service));
             config.routes.before("/exams/*", ctx -> {
                 if(ctx.sessionAttribute("user") == null){
                     ctx.skipRemainingHandlers();

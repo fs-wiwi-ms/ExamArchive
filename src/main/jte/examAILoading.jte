@@ -1,6 +1,5 @@
 @import ms.wiwi.examarchive.ai.ExamAIJob
 @import ms.wiwi.examarchive.ai.ExamAIStatus
-@import ms.wiwi.examarchive.services.JteLocalizer
 
 @param ExamAIJob job
 @param boolean isSseWrapper = false
@@ -91,9 +90,12 @@
         @endif
 
         @if(isDone)
-            <div style="margin-top: 2.5rem; display: flex; justify-content: center;">
-                <a href="/exams/download/${job.id()}" role="button">Zur Klausur</a>
-                <!--TODO: automatic download -->
+            <iframe src="/exams/usercontent/download/${job.id()}" style="display: none;"></iframe>
+            <div style="margin-top: 2.5rem; display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+                <a href="/exams/module/${job.moduleid()}" role="button">Zurück</a>
+                <small style="color: var(--pico-muted-color);">
+                    Der Download startet automatisch. Falls nicht, <a href="/exams/usercontent/download/${job.id()}">hier klicken</a>.
+                </small>
             </div>
         @endif
 

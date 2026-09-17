@@ -1016,39 +1016,65 @@ public class Repository {
         }
     }
 
-    public List<Exam> queryExamsFilterByDateAndProf(int year, List<Professor> professors){
-        try(Connection connection = dbManager.getConnection();
-        PreparedStatement statement = connection.prepareStatement("""
+    public List<Exam> queryExamsFilterByDateAndProf(Integer year, List<Professor> professors) {
+        StringBuilder sql = new StringBuilder("""
         SELECT
-            e.examID, e.name AS exam_name, e.semester, e.moduleid, e.year, e.uploadDate, e.fileID, e.status, e.uploaderid, e.scan,
-            p.professorID
-        FROM exams e
-        INNER JOIN professors p ON e.professorID = p.professorID
-        WHERE e.status = ? AND e.professorID = ANY(?) AND e.year >= ?
-        ORDER BY e.year DESC
-        LIMIT 3
-        """)){
-            statement.setString(1, ExamStatus.ACCEPTED.name());
-            statement.setArray(2, connection.createArrayOf("varchar", professors.stream().map(Professor::professorID).toArray(String[]::new)));
-            statement.setInt(3, year);
-            ResultSet set = statement.executeQuery();
-            List<Exam> exams = new ArrayList<>();
-            while(set.next()){
-                String examid = set.getString("examID");
-                String examName = set.getString("exam_name");
-                Semester semester = Semester.valueOf(set.getString("semester"));
-                int exam_year = set.getInt("year");
-                String moduleID = set.getString("moduleid");
-                Instant uploaddate = set.getTimestamp("uploaddate").toInstant();
-                String fileID = set.getString("fileID");
-                String uploaderID = set.getString("uploaderid");
-                ExamStatus status = ExamStatus.valueOf(set.getString("status"));
-                String profID = set.getString("professorID");
-                String scan = set.getString("scan");
-                exams.add(new Exam(examName, examid, moduleID, exam_year, semester, uploaddate, fileID, uploaderID, status, profID, scan));
+            examID, name AS exam_name, semester, moduleid, year, uploadDate, fileID, status, uploaderid, scan, professorID
+        FROM exams
+        WHERE status = ?
+        """);
+        boolean hasProfessors = professors != null && !professors.isEmpty();
+        boolean hasYear = year != null && year > 0;
+
+        if (hasProfessors) {
+            sql.append(" AND professorID = ANY(?)");
+        }
+        if (hasYear) {
+            sql.append(" AND year >= ?");
+        }
+
+        sql.append(" ORDER BY year DESC LIMIT 3");
+
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql.toString())) {
+            int paramIndex = 1;
+            statement.setString(paramIndex++, ExamStatus.ACCEPTED.name());
+            Array profArray = null;
+            if (hasProfessors) {
+                String[] profIds = professors.stream()
+                        .map(Professor::professorID)
+                        .toArray(String[]::new);
+                profArray = connection.createArrayOf("varchar", profIds);
+                statement.setArray(paramIndex++, profArray);
             }
-            return exams;
-        } catch (SQLException e){
+            if (hasYear) {
+                paramIndex++;
+                statement.setInt(paramIndex, year);
+            }
+            try (ResultSet set = statement.executeQuery()) {
+                List<Exam> exams = new ArrayList<>();
+                while (set.next()) {
+                    String examid = set.getString("examID");
+                    String examName = set.getString("exam_name");
+                    Semester semester = Semester.valueOf(set.getString("semester"));
+                    int examYear = set.getInt("year");
+                    String moduleID = set.getString("moduleid");
+                    Instant uploaddate = set.getTimestamp("uploadDate").toInstant();
+                    String fileID = set.getString("fileID");
+                    String uploaderID = set.getString("uploaderid");
+                    ExamStatus status = ExamStatus.valueOf(set.getString("status"));
+                    String profID = set.getString("professorID");
+                    String scan = set.getString("scan");
+
+                    exams.add(new Exam(examName, examid, moduleID, examYear, semester, uploaddate, fileID, uploaderID, status, profID, scan));
+                }
+                return exams;
+            } finally {
+                if (profArray != null) {
+                    profArray.free();
+                }
+            }
+        } catch (SQLException e) {
             logger.error("Could not query exams", e);
             return List.of();
         }
@@ -1075,6 +1101,30 @@ public class Repository {
             statement.execute();
         } catch (SQLException e) {
             logger.error("Could not add user exam", e);
+        }
+    }
+
+    /**
+     * Checks if the user is the owner of the user exam
+     * @param user user to check ownership for
+     * @param userexamid fileid
+     * @return
+     */
+    public boolean isUserExamOwner(User user, String userexamid) {
+        if (user == null || user.id() == null || userexamid == null) {
+            return false;
+        }
+        String sql = "SELECT 1 FROM user_exams WHERE user_id = ? AND file_id= ?";
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, user.id());
+            statement.setString(2, userexamid);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next();
+            }
+        } catch (SQLException e) {
+            logger.error("Could not verify user exam ownership for user {} and file {}", user.id(), userexamid, e);
+            return false;
         }
     }
 }
