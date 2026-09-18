@@ -4,6 +4,7 @@ import ms.wiwi.examarchive.Repository;
 import ms.wiwi.examarchive.ai.ExamAIJob;
 import ms.wiwi.examarchive.ai.ExamAIStatus;
 import ms.wiwi.examarchive.model.Exam;
+import ms.wiwi.examarchive.model.Module;
 import ms.wiwi.examarchive.model.Professor;
 import ms.wiwi.examarchive.model.User;
 import okhttp3.*;
@@ -115,11 +116,10 @@ public class AIService {
                 CompilationResult compilationResult = compileExam(result.latex(), job);
                 if (!compilationResult.success()) {
                     updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, "Could not compile exam");
-                    //TODO maybe retry with ai to fix LaTeX code?
                     return;
                 }
                 updateJobStatusAndNotify(job, ExamAIStatus.UPLOADING, onUpdate);
-                boolean uploadSuccess = uploadUserExamAndSaveToDB(compilationResult.pdfFile(), job.id(), user, result.inputToken(), result.outputToken());
+                boolean uploadSuccess = uploadUserExamAndSaveToDB(compilationResult.pdfFile(), job.id(), user, result.inputToken(), result.outputToken(), moduleid);
                 if (!uploadSuccess) {
                     updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, "Could not upload exam");
                     return;
@@ -374,7 +374,7 @@ public class AIService {
      * @param pdfFile Exam to upload
      * @return true if successfull
      */
-    private boolean uploadUserExamAndSaveToDB(byte[] pdfFile, String id, User user, int inputToken, int outputToken) {
+    private boolean uploadUserExamAndSaveToDB(byte[] pdfFile, String id, User user, int inputToken, int outputToken, String moduleid) {
         File tempfile = null;
         boolean success;
         try {
@@ -382,7 +382,8 @@ public class AIService {
             Files.write(tempfile.toPath(), pdfFile, StandardOpenOption.APPEND, StandardOpenOption.CREATE);
             s3Service.uploadPDF(tempfile, id, S3Service.Bucket.USER_EXAMS);
             success = true;
-            repository.addUserExam(id, user, inputToken, outputToken);
+            Module module = repository.getModule(moduleid);
+            repository.addUserExam(id, user, inputToken, outputToken, module.name() + "-" + id.substring(5));
         } catch (IOException e) {
             throw new RuntimeException(e);
         } finally {
