@@ -8,10 +8,12 @@
     <li><a href="https://fachschaft-wiwi.ms/">${JteLocalizer.get("header.website")}</a></li>
     @if(isAdmin)
     <li><a href="/exams/search">Klausursuche</a></li>
+    <li><a href="/exams/usercontent/list">${JteLocalizer.get("header.myexams")}</a></li>
     <li><a style="color: maroon" href="/admin/admin">Admin Dashboard</a></li>
     <li><a href="/logout">Logout</a></li>
     @elseif(loggedIn)
     <li><a href="/exams/search">Home</a></li>
+    <li><a href="/exams/usercontent/list">${JteLocalizer.get("header.myexams")}</a></li>
     <li><a href="/logout">Logout</a></li>
     @else
     <li><a href="/login/admin">${JteLocalizer.get("header.admin")}</a></li>

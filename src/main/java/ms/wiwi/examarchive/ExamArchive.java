@@ -181,6 +181,7 @@ public class ExamArchive {
             config.routes.post("/admin/updatemotd", adminSettingsController::handleUpdateMotdPost);
             config.routes.get("/dropdown", new HeaderController());
             config.routes.get("/exams/usercontent/download/{userexamid}", new UserExamDownloadController(repository, s3Service));
+            config.routes.get("/exams/usercontent/list", new UserExamListController(repository));
             config.routes.before("/exams/*", ctx -> {
                 if(ctx.sessionAttribute("user") == null){
                     ctx.skipRemainingHandlers();
