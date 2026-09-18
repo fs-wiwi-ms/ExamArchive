@@ -22,21 +22,42 @@ public class ExamAIController {
     private final Repository repository;
     private final TemplateEngine templateEngine;
     private final AIService aiService;
+    private final int maxExamsPerSemester;
+    private final int maxTokenPerWeek;
     private final Map<String, SseClient>  sseClients = new ConcurrentHashMap<>();
 
-    public ExamAIController(Repository repo, AIService aiService) {
+    public ExamAIController(Repository repo, AIService aiService, int maxExamsPerSemester, int maxTokenPerWeek) {
         this.repository = repo;
         this.aiService = aiService;
+        this.maxExamsPerSemester = maxExamsPerSemester;
+        this.maxTokenPerWeek = maxTokenPerWeek;
         this.templateEngine = TemplateEngine.createPrecompiled(ContentType.Html);
     }
 
     public void handleGet(@NotNull Context context) {
         String moduleID = context.pathParam("moduleid");
-        context.render("generateExam.jte", Map.of("professors", repository.searchProfessorsForModule(moduleID, null, null), "moduleid",moduleID));
+        context.render("generateExam.jte", Map.of("professors", repository.searchProfessorsForModule(moduleID, null, null),
+                "moduleid",moduleID,
+                "userLimit", maxExamsPerSemester,
+                "userUsage", repository.calculateUserUsage(context.sessionAttribute("user"))));
     }
 
     public void handlePost(@NotNull Context context) {
-        // TODO: Handle rate limit
+        User user = context.sessionAttribute("user");
+        int usage = repository.calculateUserUsage(user);
+        int globalUsage = repository.calculateNetTokenUsage();
+        if (usage >= maxExamsPerSemester) {
+            ExamAIJob errorJob = new ExamAIJob("error", "error", ExamAIStatus.FAILED);
+            errorJob.errorMessage("You have reached the maximum number of exams per semester");
+            context.result(renderJob(errorJob));
+            return;
+        }
+        if (globalUsage >= maxTokenPerWeek) {
+            ExamAIJob errorJob = new ExamAIJob("error", "error", ExamAIStatus.FAILED);
+            errorJob.errorMessage("The global token limit has been reached. Please try again tomorrow");
+            context.result(renderJob(errorJob));
+            return;
+        }
         String moduleID = context.pathParam("moduleid");
         int year = 0;
         if (context.formParam("year") != null) {
@@ -45,11 +66,9 @@ public class ExamAIController {
             } catch (NumberFormatException _) {
             }
         }
-
         List<String> profIDs = context.formParams("profid");
         List<Professor> professors = repository.searchProfessorsForModule(moduleID, null, null);
         professors = professors.stream().filter(professor -> profIDs.contains(professor.professorID())).toList();
-        User user = context.sessionAttribute("user");
         String jobID = aiService.generateExam(year, professors, moduleID, user, job -> {
             SseClient sseClient = sseClients.get(job.id());
             if (sseClient == null) {

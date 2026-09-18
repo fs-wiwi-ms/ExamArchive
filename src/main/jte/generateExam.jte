@@ -5,6 +5,8 @@
 
 @param List<Professor> professors
 @param String moduleid
+@param int userLimit
+@param int userUsage
 <!Doctype html>
 <html lang="de" data-theme="light">
 <head>
@@ -98,10 +100,14 @@
                         </div>
                     </fieldset>
                     <div class="form-actions">
-                        <button hx-post="/exams/module/${moduleid}/examai" hx-target="#main-content">Klausur generieren</button>
+                        @if(userUsage >= userLimit)
+                            <button aria-disabled="true" disabled class="secondary">Klausur generieren</button>
+                        @else
+                            <button hx-post="/exams/module/${moduleid}/examai" hx-target="#main-content">Klausur generieren</button>
+                        @endif
                     </div>
-
                 </form>
+                @template.usageLimit(used = userUsage, max = userLimit)
             </main>
 
             <footer>

@@ -61,6 +61,8 @@ services:
       EXAMARCHIVE_ADMIN_EMAIL: "@localhost.local"
       EXAMARCHIVE_DOCKER_RUNTIME: "runc"
       EXAMARCHIVE_DOCKER_SOCK: "unix:///var/run/docker.sock"
+      EXAMARCHIVE_SEMESTER_LIMIT: 5
+      EXAMARCHIVE_WEEKLY_TOKEN_LIMIT: 15000000
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
 

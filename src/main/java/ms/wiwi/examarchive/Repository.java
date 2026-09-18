@@ -1108,7 +1108,7 @@ public class Repository {
      * Checks if the user is the owner of the user exam
      * @param user user to check ownership for
      * @param userexamid fileid
-     * @return
+     * @return true if owner
      */
     public boolean isUserExamOwner(User user, String userexamid) {
         if (user == null || user.id() == null || userexamid == null) {
@@ -1126,5 +1126,56 @@ public class Repository {
             logger.error("Could not verify user exam ownership for user {} and file {}", user.id(), userexamid, e);
             return false;
         }
+    }
+
+    /**
+     * Calculates the users generated exams from the last 6 months
+     * @param user user
+     * @return number of generated exams
+     */
+    public int calculateUserUsage(User user) {
+        if (user == null || user.id() == null) {
+            return 0;
+        }
+        String sql = """
+            SELECT COUNT(*)
+            FROM user_exams 
+            WHERE user_id = ? 
+              AND creation_date >= NOW() - INTERVAL '6 months'
+            """;
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, user.id());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    return resultSet.getInt(1);
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Could not calculate user usage for user {}", user.id(), e);
+        }
+        return 0;
+    }
+
+    /**
+     * Calculate net token usage from all exams the last 5 days
+     * @return number of tokens used
+     */
+    public int calculateNetTokenUsage() {
+        String sql = """
+            SELECT COALESCE(SUM(input_tokens + output_tokens), 0) 
+            FROM user_exams 
+            WHERE creation_date >= NOW() - INTERVAL '5 days'
+            """;
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql);
+             ResultSet resultSet = statement.executeQuery()) {
+            if (resultSet.next()) {
+                return resultSet.getInt(1);
+            }
+        } catch (SQLException e) {
+            logger.error("Could not calculate net token usage", e);
+        }
+        return 0;
     }
 }

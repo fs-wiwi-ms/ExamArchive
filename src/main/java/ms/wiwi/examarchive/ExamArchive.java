@@ -43,6 +43,8 @@ public class ExamArchive {
     private final EmailService emailService;
     private final AIService aiService;
     private final QuartoSandboxService quartoSandboxService;
+    private final int semesterExamLimit;
+    private final int weeklyTokenLimit;
     private final Logger logger = LoggerFactory.getLogger(ExamArchive.class);
 
     public ExamArchive(){
@@ -108,7 +110,9 @@ public class ExamArchive {
                     quartoSandboxService,
                     System.getenv("EXAMARCHIVE_AI_ENDPOINT"),
                     System.getenv("EXAMARCHIVE_AI_APIKEY"));
-        } catch (IOException e) {
+            weeklyTokenLimit = Integer.parseInt(System.getenv("EXAMARCHIVE_WEEKLY_TOKEN_LIMIT"));
+            semesterExamLimit = Integer.parseInt(System.getenv("EXAMARCHIVE_SEMESTER_LIMIT"));
+        } catch (Exception e) {
             throw new RuntimeException("Clould not initialize AI service", e);
         }
         logger.info("AI service initialized. Ready to start!");
@@ -140,7 +144,7 @@ public class ExamArchive {
             ShowModuleController showModuleHandler = new ShowModuleController(repository);
             config.routes.get("/exams/module/{moduleid}", showModuleHandler::handleGet);
             config.routes.post("/exams/module/{moduleid}/filter", showModuleHandler::handleFilter);
-            ExamAIController examAIController = new ExamAIController(repository, aiService);
+            ExamAIController examAIController = new ExamAIController(repository, aiService, semesterExamLimit, weeklyTokenLimit);
             config.routes.get("/exams/module/{moduleid}/examai", examAIController::handleGet);
             config.routes.post("/exams/module/{moduleid}/examai", examAIController::handlePost);
             config.routes.sse("/exams/ai/job/{jobid}", examAIController::handleSse);
