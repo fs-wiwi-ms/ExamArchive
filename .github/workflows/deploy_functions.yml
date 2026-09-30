@@ -9,10 +9,15 @@ on:
 env:
   AZURE_FUNCTIONAPP_NAME: 'func-azure-credit-reporter'
   PYTHON_VERSION: '3.13'
+  PROJECT_FOLDER: 'AzureFunctions'
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.PROJECT_FOLDER }}
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -24,13 +29,12 @@ jobs:
 
       - name: Install Poetry & Export Plugin
         run: |
-          cd AzureFunctions
           pip install poetry poetry-plugin-export
           poetry config virtualenvs.create false
 
       - name: Export Poetry dependencies to requirements.txt
+        working-directory: ./${{ env.SUBDIR }}
         run: |
-          cd AzureFunctions
           poetry export -f requirements.txt --output requirements.txt --without-hashes
 
       - name: Log in to Azure
@@ -42,4 +46,4 @@ jobs:
         uses: Azure/functions-action@v1
         with:
           app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
-          package: '.'
+          package: ./${{ env.PROJECT_FOLDER }}
