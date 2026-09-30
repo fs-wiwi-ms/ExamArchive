@@ -36,6 +36,10 @@ jobs:
         run: |
           poetry export -f requirements.txt --output requirements.txt --without-hashes
 
+      - name: Install dependencies into .python_packages
+        run: |
+          pip install --target="./.python_packages/lib/site-packages" -r requirements.txt
+
       - name: Log in to Azure
         uses: azure/login@v2
         with:
