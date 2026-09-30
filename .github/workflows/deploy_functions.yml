@@ -24,11 +24,13 @@ jobs:
 
       - name: Install Poetry & Export Plugin
         run: |
+          cd AzureFunctions
           pip install poetry poetry-plugin-export
           poetry config virtualenvs.create false
 
       - name: Export Poetry dependencies to requirements.txt
         run: |
+          cd AzureFunctions
           poetry export -f requirements.txt --output requirements.txt --without-hashes
 
       - name: Log in to Azure
