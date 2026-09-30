@@ -2,11 +2,11 @@
 name = "azure-credit-reporter"
 version = "1.0.0"
 description = "Azure Function reporting credit consumption to webhooks"
-authors = ["Your Organization <dev@example.com>"]
+authors = ["Fachschaft WiWi <admin@fachschaft-wiwi.ms>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.13"
 azure-functions = "^1.18.0"
 azure-identity = "^1.15.0"
 requests = "^2.31.0"
