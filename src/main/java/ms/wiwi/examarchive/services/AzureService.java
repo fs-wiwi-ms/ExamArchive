@@ -51,7 +51,6 @@ public class AzureService {
         if(ctx.header("Authorization") == null || !ctx.header("Authorization").equals("Bearer " + authToken)){
             ctx.status(403);
             ctx.result("Invalid Authorization");
-            logger.info("Invalid Authorization "  + ctx.header("Authorization"));
             return;
         }
         String body = ctx.body();
@@ -60,6 +59,7 @@ public class AzureService {
         currentAmount = jsonNode.get("currentAmount").asDouble();
         lastUpdate = Instant.now();
         repository.updateLastKnownAzureCredits(currentAmount, currentCredits);
+        ctx.status(200);
     }
 
     private boolean isOutdated(){
