@@ -55,7 +55,7 @@ public class AzureService {
         }
         String body = ctx.body();
         JsonNode jsonNode = jsonMapper.readTree(body);
-        currentCredits = jsonNode.get("credits").asDouble();
+        currentCredits = jsonNode.get("credit").asDouble();
         currentAmount = jsonNode.get("currentAmount").asDouble();
         lastUpdate = Instant.now();
         repository.updateLastKnownAzureCredits(currentAmount, currentCredits);

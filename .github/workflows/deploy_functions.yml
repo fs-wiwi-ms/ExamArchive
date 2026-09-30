@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-      - exam-ai
-
 env:
   AZURE_FUNCTIONAPP_NAME: 'func-azure-credit-reporter'
   PYTHON_VERSION: '3.13'
