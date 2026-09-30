@@ -5,10 +5,7 @@ import gg.jte.TemplateEngine;
 import io.javalin.Javalin;
 import io.javalin.rendering.template.JavalinJte;
 import io.javalin.router.JavalinDefaultRoutingApi;
-import ms.wiwi.examarchive.admin.AdminExamsController;
-import ms.wiwi.examarchive.admin.AdminIndexController;
-import ms.wiwi.examarchive.admin.AdminSettingsController;
-import ms.wiwi.examarchive.admin.AdminUsersController;
+import ms.wiwi.examarchive.admin.*;
 import ms.wiwi.examarchive.auth.AuthController;
 import ms.wiwi.examarchive.auth.OIDCService;
 import ms.wiwi.examarchive.controller.*;
@@ -43,6 +40,7 @@ public class ExamArchive {
     private final EmailService emailService;
     private final AIService aiService;
     private final QuartoSandboxService quartoSandboxService;
+    private final AzureService azureService;
     private final int semesterExamLimit;
     private final int weeklyTokenLimit;
     private final Logger logger = LoggerFactory.getLogger(ExamArchive.class);
@@ -102,12 +100,19 @@ public class ExamArchive {
                 System.getenv("EXAMARCHIVE_DOCKER_RUNTIME")
         );
         logger.info("Quarto sandbox service initialized");
+        logger.info("Initializing Azure service");
+        azureService = new AzureService(
+                System.getenv("EXAMARCHIVE_AZURE_WEBHOOK_SECRET"),
+                repository
+        );
+        logger.info("Azure service initialized");
         logger.info("Initializing AI service");
         try {
             aiService = new AIService(
                     repository,
                     s3Service,
                     quartoSandboxService,
+                    azureService,
                     System.getenv("EXAMARCHIVE_AI_ENDPOINT"),
                     System.getenv("EXAMARCHIVE_AI_APIKEY"));
             weeklyTokenLimit = Integer.parseInt(System.getenv("EXAMARCHIVE_WEEKLY_TOKEN_LIMIT"));
@@ -123,6 +128,7 @@ public class ExamArchive {
      */
     private void start() {
         dbManager.migrateDatabase();
+        azureService.loadFromDatabase();
         logger.info("Starting webserver");
         AuthController authController = new AuthController(oidcService, repository, System.getenv("KEYCLOAK_USER_AFFILIATION"), System.getenv("KEYCLOAK_ADMIN_AFFILIATION"), System.getenv("EXAMARCHIVE_ADMIN_EMAIL"));
         Javalin javalin = Javalin.create(config -> {
@@ -135,6 +141,7 @@ public class ExamArchive {
                 ctx.render("index.jte");
             });
             config.staticFiles.add("/public");
+            config.routes.post("/api/azure_webhook", azureService::handleWebhook);
             config.routes.get("/login/{type}", authController::login);
             config.routes.get("/auth/callback", authController::callback);
             config.routes.get("/logout", authController::logout);
@@ -179,6 +186,7 @@ public class ExamArchive {
             AdminSettingsController adminSettingsController = new AdminSettingsController(motdService, repository);
             config.routes.get("/admin/settings", adminSettingsController::handleGet);
             config.routes.post("/admin/updatemotd", adminSettingsController::handleUpdateMotdPost);
+            config.routes.get("/admin/ai", new AdminAIController(repository, azureService, weeklyTokenLimit));
             config.routes.get("/dropdown", new HeaderController());
             config.routes.get("/exams/usercontent/download/{userexamid}", new UserExamDownloadController(repository, s3Service));
             config.routes.get("/exams/usercontent/list", new UserExamListController(repository));

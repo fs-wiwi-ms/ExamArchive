@@ -4,6 +4,7 @@ import ms.wiwi.examarchive.admin.AdminExamListDTO;
 import ms.wiwi.examarchive.admin.ModuleDegreeDTO;
 import ms.wiwi.examarchive.model.*;
 import ms.wiwi.examarchive.model.Module;
+import ms.wiwi.examarchive.services.AzureService;
 import ms.wiwi.examarchive.services.DatabaseService;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -1214,6 +1215,84 @@ public class Repository {
         } catch (SQLException e) {
             logger.error("Could not get user exams for user {}", user.id(), e);
             return List.of();
+        }
+    }
+
+    public int countWeeklyUserExmas(){
+        return countUserExamsSince("7 day");
+    }
+
+    public int countSemesterUserExams(){
+        return countUserExamsSince("6 month");
+    }
+
+    private int countUserExamsSince(String pgInterval) {
+        String query = "SELECT COUNT(id) FROM user_exams WHERE creation_date >= NOW() - INTERVAL '" + pgInterval + "'";
+        try(Connection connection = dbManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement(query);
+            ResultSet resultSet = statement.executeQuery()) {
+            if (resultSet.next()) {
+                return resultSet.getInt(1);
+            }
+        } catch (SQLException e) {
+            logger.error("Could not count user exams since {}", pgInterval, e);
+        }
+        return 0;
+    }
+
+    public int countWeeklyUserExmasToken(){
+        return countUserExamsTokenSince("7 day");
+    }
+
+    public int countSemesterUserExamsToken(){
+        return countUserExamsTokenSince("6 month");
+    }
+
+    private int countUserExamsTokenSince(String pgInterval) {
+        String query = "SELECT (SUM(input_tokens) + SUM(output_tokens)) FROM user_exams WHERE creation_date >= NOW() - INTERVAL '" + pgInterval + "'";
+        try(Connection connection = dbManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement(query);
+            ResultSet resultSet = statement.executeQuery()) {
+            if (resultSet.next()) {
+                return resultSet.getInt(1);
+            }
+        } catch (SQLException e) {
+            logger.error("Could not count user exams since {}", pgInterval, e);
+        }
+        return 0;
+    }
+
+    public AzureService.AzureCreditDTO getAzureCredits(){
+        String sql = """
+                SELECT current_amount, current_credit, last_update
+                FROM azure_credits
+                LIMIT 1
+                """;
+        try(Connection connection = dbManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement(sql);
+            ResultSet resultSet = statement.executeQuery()) {
+            if (resultSet.next()) {
+                return new AzureService.AzureCreditDTO(resultSet.getDouble(1), resultSet.getDouble(2), resultSet.getTimestamp(3).toInstant());
+            }
+        } catch (SQLException e) {
+            logger.error("Could not get Azure credits", e);
+        }
+        return null;
+    }
+
+    public void updateLastKnownAzureCredits(double currentAmount, double currentCredit){
+        String sql = """
+                UPDATE azure_credits
+                SET current_amount = ?, current_credit = ?, last_update = NOW()
+                WHERE id = 1
+                """;
+        try(Connection connection = dbManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setDouble(1, currentAmount);
+            statement.setDouble(2, currentCredit);
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Could not update Azure credits", e);
         }
     }
 }

@@ -1,0 +1,46 @@
+name: Deploy Azure Function
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'AzureFunctions/**'
+      - '.github/workflows/deploy_functions.yml'
+  workflow_dispatch:
+
+env:
+  AZURE_FUNCTIONAPP_NAME: 'func-azure-credit-reporter'
+  PYTHON_VERSION: '3.13'
+  WORKING_DIR: 'AzureFunctions'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./${{ env.WORKING_DIR }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        run: |
+          pip install poetry
+          poetry config virtualenvs.create false
+
+      - name: Export Poetry dependencies to requirements.txt
+        run: |
+          poetry export -f requirements.txt --output requirements.txt --without-hashes
+
+      - name: Deploy to Azure Functions
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
+          package: ./${{ env.WORKING_DIR }}
+          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
