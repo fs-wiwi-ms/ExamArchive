@@ -45,6 +45,7 @@ public class AIService {
     private final Repository repository;
     private final S3Service s3Service;
     private final QuartoSandboxService quartoSandboxService;
+    private final AzureService azureService;
     private final OkHttpClient httpClient;
     private final JsonMapper mapper;
     private final String aiEndpoint;
@@ -52,9 +53,10 @@ public class AIService {
     private String scanPrompt;
     private String genPrompt;
 
-    public AIService(Repository repository, S3Service s3Service, QuartoSandboxService quartoSandboxService, String openAIEndpoint, String apiKey) throws IOException {
+    public AIService(Repository repository, S3Service s3Service, QuartoSandboxService quartoSandboxService, AzureService azureService, String openAIEndpoint, String apiKey) throws IOException {
         this.repository = repository;
         this.s3Service = s3Service;
+        this.azureService = azureService;
         this.quartoSandboxService = quartoSandboxService;
         this.mapper = new JsonMapper();
         this.aiEndpoint = openAIEndpoint;
@@ -91,6 +93,10 @@ public class AIService {
         executor.submit(() -> {
             try {
                 onUpdate.accept(job);
+                if(azureService.getCurrentCredits() - azureService.getCurrentAmount() < 150){
+                    updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, "There seems to be a problem with Azure. Please contact the administrator");
+                    return;
+                }
                 List<Exam> exams = repository.queryExamsFilterByDateAndProf(untilYear, professors);
                 if (exams.isEmpty()) {
                     updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, "No exams found with applied filters");
