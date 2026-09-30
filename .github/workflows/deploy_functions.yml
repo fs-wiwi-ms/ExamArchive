@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - exam-ai
     paths:
       - 'AzureFunctions/**'
       - '.github/workflows/deploy_functions.yml'
