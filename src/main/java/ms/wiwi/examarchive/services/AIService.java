@@ -88,12 +88,18 @@ public class AIService {
 
     public String generateExam(int untilYear, List<Professor> professors, String moduleid, User user, Consumer<ExamAIJob> onUpdate) {
         String id = UUID.randomUUID().toString();
-        ExamAIJob job = new ExamAIJob(id, moduleid, ExamAIStatus.FETCH_EXAMS);
+        ExamAIJob job = new ExamAIJob(id, moduleid, ExamAIStatus.FETCH_EXAMS, user);
+        for(ExamAIJob i : jobs.values()){
+            if(i.user().id().equals(user.id())){
+                updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, "You already have an exam generation in progress");
+                return id;
+            }
+        }
         jobs.put(id, job);
         executor.submit(() -> {
             try {
                 onUpdate.accept(job);
-                if(azureService.getCurrentCredits() - azureService.getCurrentAmount() < 150){
+                if(azureService.getCurrentAmount() <= 150){
                     updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, "There seems to be a problem with Azure. Please contact the administrator");
                     return;
                 }
