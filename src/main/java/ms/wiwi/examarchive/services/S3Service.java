@@ -1,6 +1,7 @@
 package ms.wiwi.examarchive.services;
 
 import io.minio.*;
+import io.minio.errors.MinioException;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.io.RandomAccessReadBufferedFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -27,7 +28,6 @@ public class S3Service {
     private static final Logger logger = LoggerFactory.getLogger(S3Service.class);
 
     private final MinioClient s3client;
-    private final String bucketName;
 
     /**
      * Creates a new S3Service instance.
@@ -35,20 +35,18 @@ public class S3Service {
      * @param endpoint   S3 Service endpoint
      * @param accessKey  S3 Access Key
      * @param secretKey  S3 Secret Key
-     * @param bucketName Name of the S3 bucket
      */
-    public S3Service(String endpoint, String accessKey, String secretKey, String bucketName) {
+    public S3Service(String endpoint, String accessKey, String secretKey) {
         s3client = MinioClient.builder().endpoint(endpoint).credentials(accessKey, secretKey).build();
-        this.bucketName = bucketName;
     }
 
     /**
      * Creates the S3 bucket if it doesn't exist.
      */
-    public void createBucketIfNotExists(){
+    public void createBucketIfNotExists(Bucket bucket) {
         try {
-            if(!s3client.bucketExists(BucketExistsArgs.builder().bucket(bucketName).build())){
-                s3client.makeBucket(MakeBucketArgs.builder().bucket(bucketName).build());
+            if(!s3client.bucketExists(BucketExistsArgs.builder().bucket(bucket.name()).build())){
+                s3client.makeBucket(MakeBucketArgs.builder().bucket(bucket.name()).build());
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -62,7 +60,7 @@ public class S3Service {
      * @param objectName The destination key/name in the S3 bucket
      * @throws RuntimeException When upload fails or sanitization fails
      */
-    public void uploadPDF(File file, String objectName) throws RuntimeException {
+    public void uploadPDF(File file, String objectName, Bucket bucket) throws RuntimeException {
         File tempSanitizedFile = null;
         try {
             tempSanitizedFile = File.createTempFile("sanitized-upload-", ".pdf");
@@ -71,10 +69,10 @@ public class S3Service {
                 throw new IOException("Failed to sanitize the PDF. Upload aborted.");
             }
             try (InputStream is = new FileInputStream(tempSanitizedFile)) {
-                s3client.putObject(PutObjectArgs.builder().bucket(bucketName).object(objectName).stream(is, tempSanitizedFile.length(), -1L)
+                s3client.putObject(PutObjectArgs.builder().bucket(bucket.name()).object(objectName).stream(is, tempSanitizedFile.length(), -1L)
                         .contentType("application/pdf").build());
 
-                logger.info("Successfully uploaded sanitized PDF to {}/{}", bucketName, objectName);
+                logger.info("Successfully uploaded sanitized PDF to {}/{}", bucket.name(), objectName);
             }
         } catch (Exception e) {
             logger.error("Error uploading PDF: {}", objectName, e);
@@ -106,11 +104,11 @@ public class S3Service {
     /**
      * Deletes an object from the S3 bucket.
      */
-    public void deleteFile(String objectName) {
+    public void deleteFile(String objectName, Bucket bucket) {
         try {
-            s3client.removeObject(RemoveObjectArgs.builder().bucket(bucketName).object(objectName).build());
+            s3client.removeObject(RemoveObjectArgs.builder().bucket(bucket.name()).object(objectName).build());
         } catch (Exception e) {
-            logger.error("Could not delete object {} in bucket {}", objectName, bucketName);
+            logger.error("Could not delete object {} in bucket {}", objectName, bucket.name(), e);
         }
     }
 
@@ -121,13 +119,13 @@ public class S3Service {
      * @param filename   Name of the file to be downloaded
      * @return Presigned URL for the file, or null if the URL could not be created
      */
-    public @Nullable String createPresignedUrl(String objectName, String filename) {
+    public @Nullable String createPresignedUrl(String objectName, String filename, Bucket bucket) {
         try {
             Map<String, String> reqParams = new HashMap<>();
             reqParams.put("response-content-disposition", "attachment; filename=\"" + filename + "\"");
-            return s3client.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder().method(Http.Method.GET).bucket(bucketName).object(objectName).expiry(10, TimeUnit.MINUTES).extraQueryParams(reqParams).build());
+            return s3client.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder().method(Http.Method.GET).bucket(bucket.name()).object(objectName).expiry(10, TimeUnit.MINUTES).extraQueryParams(reqParams).build());
         } catch (Exception e) {
-            logger.error("Could not create presigned URL for object {} in bucket {}", objectName, bucketName, e);
+            logger.error("Could not create presigned URL for object {} in bucket {}", objectName, bucket.name(), e);
             return null;
         }
     }
@@ -174,6 +172,36 @@ public class S3Service {
                 sanitizedOutputFile.delete();
             }
             return false;
+        }
+    }
+
+    public byte[] downloadFile(String id, Bucket bucket){
+        try (GetObjectResponse response = s3client.getObject(GetObjectArgs.builder().bucket(bucket.bucketName).object(id).build())){
+            return response.readAllBytes();
+        } catch (IOException | MinioException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Represents a Bucket for the S3Service
+     */
+    public static class Bucket {
+        public static final Bucket EXAMS = new Bucket("exams");
+        public static final Bucket USER_EXAMS = new Bucket("user-exams");
+
+        private String bucketName;
+
+        private Bucket(String bucketName) {
+            this.bucketName = bucketName;
+        }
+
+        public String name() {
+            return bucketName;
+        }
+
+        public void setName(String bucketName) {
+            this.bucketName = bucketName;
         }
     }
 }
