@@ -47,13 +47,13 @@ public class ExamAIController {
         int usage = repository.calculateUserUsage(user);
         int globalUsage = repository.calculateNetTokenUsage();
         if (usage >= maxExamsPerSemester) {
-            ExamAIJob errorJob = new ExamAIJob("error", "error", ExamAIStatus.FAILED);
+            ExamAIJob errorJob = new ExamAIJob("error", "error", ExamAIStatus.FAILED, user);
             errorJob.errorMessage("You have reached the maximum number of exams per semester");
             context.result(renderJob(errorJob));
             return;
         }
         if (globalUsage >= maxTokenPerWeek) {
-            ExamAIJob errorJob = new ExamAIJob("error", "error", ExamAIStatus.FAILED);
+            ExamAIJob errorJob = new ExamAIJob("error", "error", ExamAIStatus.FAILED, user);
             errorJob.errorMessage("The global token limit has been reached. Please try again tomorrow");
             context.result(renderJob(errorJob));
             return;
@@ -80,7 +80,7 @@ public class ExamAIController {
             }
         });
         context.render("examAILoading.jte", Map.of(
-                "job", new ExamAIJob(jobID, moduleID, ExamAIStatus.FETCH_EXAMS),
+                "job", new ExamAIJob(jobID, moduleID, ExamAIStatus.FETCH_EXAMS, user),
                 "moduleid", moduleID,
                 "isSseWrapper", true
         ));
