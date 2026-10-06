@@ -1049,8 +1049,7 @@ public class Repository {
                 statement.setArray(paramIndex++, profArray);
             }
             if (hasYear) {
-                paramIndex++;
-                statement.setInt(paramIndex, year);
+                statement.setInt(paramIndex++, year);
             }
             try (ResultSet set = statement.executeQuery()) {
                 List<Exam> exams = new ArrayList<>();
