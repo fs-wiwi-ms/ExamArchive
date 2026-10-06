@@ -336,7 +336,7 @@ public class AIService {
         ObjectNode contentInstruction = examContent.addObject();
         contentInstruction.put("type", "text");
         contentInstruction.put("text", "These are all pages you should scan");
-        for(int i = 0; i < images.size() || i < 50; i++) {
+        for(int i = 0; i < images.size() && i < 50; i++) {
             byte[] image = images.get(i);
             ObjectNode imageNode = examContent.addObject();
             imageNode.put("type", "image_url");
