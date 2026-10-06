@@ -103,7 +103,7 @@ public class AIService {
                     updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, "There seems to be a problem with Azure. Please contact the administrator");
                     return;
                 }
-                List<Exam> exams = repository.queryExamsFilterByDateAndProf(untilYear, professors);
+                List<Exam> exams = repository.queryExamsFilterByDateAndProf(moduleid, untilYear, professors);
                 if (exams.isEmpty()) {
                     updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, "No exams found with applied filters");
                     return;
@@ -116,7 +116,7 @@ public class AIService {
                         updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, "Could not scan exams");
                         return;
                     }
-                    exams = repository.queryExamsFilterByDateAndProf(untilYear, professors);
+                    exams = repository.queryExamsFilterByDateAndProf(moduleid, untilYear, professors);
                 }
                 updateJobStatusAndNotify(job, ExamAIStatus.GENERATING, onUpdate);
                 GenerationResult result = generateExamsFromList(exams);
