@@ -1017,13 +1017,14 @@ public class Repository {
         }
     }
 
-    public List<Exam> queryExamsFilterByDateAndProf(Integer year, List<Professor> professors) {
+    public List<Exam> queryExamsFilterByDateAndProf(String moduleId, Integer year, List<Professor> professors) {
         StringBuilder sql = new StringBuilder("""
         SELECT
             examID, name AS exam_name, semester, moduleid, year, uploadDate, fileID, status, uploaderid, scan, professorID
         FROM exams
-        WHERE status = ?
+        WHERE moduleid = ? AND status = ?
         """);
+
         boolean hasProfessors = professors != null && !professors.isEmpty();
         boolean hasYear = year != null && year > 0;
 
@@ -1038,8 +1039,11 @@ public class Repository {
 
         try (Connection connection = dbManager.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql.toString())) {
+
             int paramIndex = 1;
+            statement.setString(paramIndex++, moduleId);
             statement.setString(paramIndex++, ExamStatus.ACCEPTED.name());
+
             Array profArray = null;
             if (hasProfessors) {
                 String[] profIds = professors.stream()
@@ -1051,22 +1055,23 @@ public class Repository {
             if (hasYear) {
                 statement.setInt(paramIndex++, year);
             }
+
             try (ResultSet set = statement.executeQuery()) {
                 List<Exam> exams = new ArrayList<>();
                 while (set.next()) {
-                    String examid = set.getString("examID");
-                    String examName = set.getString("exam_name");
-                    Semester semester = Semester.valueOf(set.getString("semester"));
-                    int examYear = set.getInt("year");
-                    String moduleID = set.getString("moduleid");
-                    Instant uploaddate = set.getTimestamp("uploadDate").toInstant();
-                    String fileID = set.getString("fileID");
-                    String uploaderID = set.getString("uploaderid");
-                    ExamStatus status = ExamStatus.valueOf(set.getString("status"));
-                    String profID = set.getString("professorID");
-                    String scan = set.getString("scan");
-
-                    exams.add(new Exam(examName, examid, moduleID, examYear, semester, uploaddate, fileID, uploaderID, status, profID, scan));
+                    exams.add(new Exam(
+                            set.getString("exam_name"),
+                            set.getString("examID"),
+                            set.getString("moduleid"),
+                            set.getInt("year"),
+                            Semester.valueOf(set.getString("semester")),
+                            set.getTimestamp("uploadDate").toInstant(),
+                            set.getString("fileID"),
+                            set.getString("uploaderid"),
+                            ExamStatus.valueOf(set.getString("status")),
+                            set.getString("professorID"),
+                            set.getString("scan")
+                    ));
                 }
                 return exams;
             } finally {
@@ -1075,7 +1080,7 @@ public class Repository {
                 }
             }
         } catch (SQLException e) {
-            logger.error("Could not query exams", e);
+            logger.error("Could not query exams for module {}", moduleId, e);
             return List.of();
         }
     }

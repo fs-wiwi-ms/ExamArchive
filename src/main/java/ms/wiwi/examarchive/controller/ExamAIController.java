@@ -60,7 +60,7 @@ public class ExamAIController {
         }
         String moduleID = context.pathParam("moduleid");
         int year = 0;
-        if (context.formParam("year") != null) {
+        if (context.formParam("year") != null && !context.formParam("year").isBlank()) {
             try {
                 year = Integer.parseInt(context.formParam("year"));
             } catch (NumberFormatException _) {
