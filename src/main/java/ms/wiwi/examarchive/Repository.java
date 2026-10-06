@@ -1119,7 +1119,7 @@ public class Repository {
         if (user == null || user.id() == null || userexamid == null) {
             return false;
         }
-        String sql = "SELECT 1 FROM user_exams WHERE user_id = ? AND file_id= ?";
+        String sql = "SELECT 1 FROM user_exams WHERE user_id = ? AND id = ?";
         try (Connection connection = dbManager.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, user.id());
