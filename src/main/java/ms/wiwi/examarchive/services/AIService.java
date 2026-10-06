@@ -146,10 +146,11 @@ public class AIService {
     }
 
     private CompilationResult compileExam(String quarto, ExamAIJob job) {
+        Module module = repository.getModule(job.moduleid());
         String yaml = """
                 ---
-                title: "Übungsklausur"
-                subtitle: "Klausurarchiv | Fachschaft WiWi"
+                title: "%s"
+                subtitle: "FS WiWi | KI generierte Aufgaben können unlösbar oder nicht eindeutig sein"
                 format:
                   typst:
                     papersize: a4
@@ -163,7 +164,7 @@ public class AIService {
                   message: false
                 ---
                 
-                """;
+                """.formatted(module.name() != null ? module.name() : "Klausur");
         try {
             byte[] bytes = quartoSandboxService.renderQmd(yaml + quarto);
             return new CompilationResult(true, bytes);
