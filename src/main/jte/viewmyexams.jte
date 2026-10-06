@@ -38,6 +38,71 @@
         .container {
             width: 100%;
         }
+
+        summary.semester-summary {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.35rem 0.5rem;
+            cursor: pointer;
+        }
+
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-top: 1rem;
+        }
+
+        .exam-title-text {
+            font-weight: 600;
+            word-break: break-word;
+            hyphens: auto;
+            line-height: 1.3;
+        }
+
+        .exam-id-sub {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--pico-muted-color);
+            font-weight: normal;
+            font-family: monospace;
+            margin-top: 0.15rem;
+        }
+
+        .btn-download {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.35rem 0.65rem;
+            font-size: 0.85rem;
+            margin-bottom: 0;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 576px) {
+            #main-content {
+                padding: 1rem 0;
+            }
+            article {
+                padding: 1rem !important;
+            }
+            table th, table td {
+                padding: 0.5rem 0.25rem !important;
+                font-size: 0.875rem;
+            }
+            .date-col {
+                font-size: 0.8rem;
+            }
+            .btn-text {
+                display: none;
+            }
+        }
+        @media (min-width: 400px) {
+            .btn-text {
+                display: inline;
+            }
+        }
     </style>
 </head>
 <body>
@@ -104,40 +169,57 @@
 
                 <article style="margin-bottom: 1.5rem;">
                     <details open="${isCurrent}">
-                        <summary style="cursor: pointer;">
-                            <strong>${semesterName}</strong>
+                        <summary class="semester-summary">
+                            <span><strong>${semesterName}</strong></span>
                             @if(isCurrent)
-                                <mark style="font-size: 0.75rem; padding: 0.2rem 0.55rem; border-radius: 9999px; margin-left: 0.5rem; vertical-align: middle;">
+                                <mark style="font-size: 0.75rem; padding: 0.15rem 0.55rem; border-radius: 9999px;">
                                     ${JteLocalizer.get("userexams.badge.current")}
                                 </mark>
                             @endif
-                            <small style="color: var(--pico-muted-color); margin-left: 0.5rem;">
+                            <small style="color: var(--pico-muted-color);">
                                 (${examsInSem.size()} ${examsInSem.size() == 1 ? JteLocalizer.get("userexams.count.singular") : JteLocalizer.get("userexams.count.plural")})
                             </small>
                         </summary>
-                        <div class="overflow-auto" style="margin-top: 1.25rem;">
-                            <table class="striped">
+                        <div class="table-responsive">
+                            <table class="striped" style="margin-bottom: 0;">
                                 <thead>
                                 <tr>
                                     <th scope="col" style="width: auto;">${JteLocalizer.get("userexams.count.singular")}</th>
-                                    <th scope="col" style="width: 130px;">${JteLocalizer.get("userexams.table.date")}</th>
-                                    <th scope="col" style="width: 140px; text-align: right;">${JteLocalizer.get("userexams.table.action")}</th>                                </tr>
+                                    <th scope="col" style="width: 100px;">${JteLocalizer.get("userexams.table.date")}</th>
+                                    <th scope="col" style="width: 1%; text-align: right; white-space: nowrap;">${JteLocalizer.get("userexams.table.action")}</th>
+                                </tr>
                                 </thead>
                                 <tbody>
                                 @for(var exam : examsInSem)
+                                    !{
+                                        String rawId = exam.fileID() != null ? exam.fileID() : "";
+                                        String cleanTitle = rawId.replaceAll("-[0-9a-fA-F]{3,8}-[0-9a-fA-F]{4}.*$", "");
+                                        boolean hasUuid = !cleanTitle.equals(rawId);
+                                        String uuidShort = hasUuid && rawId.length() >= 8
+                                                ? rawId.substring(rawId.length() - 8)
+                                                : "";
+                                    }
                                     <tr>
                                         <th scope="row" style="vertical-align: middle;">
-                                            ${exam.fileID()}
+                                            <div class="exam-title-text">${cleanTitle}</div>
+                                            @if(!uuidShort.isEmpty())
+                                                <small class="exam-id-sub">#${uuidShort}</small>
+                                            @endif
                                         </th>
-                                        <td style="vertical-align: middle; white-space: nowrap;">
+                                        <td class="date-col" style="vertical-align: middle; white-space: nowrap;">
                                             ${dateFormatter.format(exam.creationDate().toInstant())}
                                         </td>
-                                        <td style="text-align: right; vertical-align: middle;">
+                                        <td style="text-align: right; vertical-align: middle; white-space: nowrap;">
                                             <a href="/exams/usercontent/download/${exam.id()}"
                                                role="button"
-                                               class="outline"
-                                               style="padding: 0.35rem 0.75rem; font-size: 0.85rem; margin-bottom: 0; white-space: nowrap;">
-                                                ${JteLocalizer.get("userexams.download")}
+                                               class="outline btn-download"
+                                               title="${JteLocalizer.get("userexams.download")}">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                                    <polyline points="7 10 12 15 17 10"></polyline>
+                                                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                                                </svg>
+                                                <span class="btn-text">${JteLocalizer.get("userexams.download")}</span>
                                             </a>
                                         </td>
                                     </tr>
