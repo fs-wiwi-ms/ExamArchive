@@ -4,23 +4,26 @@ import gg.jte.ContentType;
 import gg.jte.TemplateEngine;
 import io.javalin.Javalin;
 import io.javalin.rendering.template.JavalinJte;
-import io.javalin.router.JavalinDefaultRoutingApi;
 import ms.wiwi.examarchive.admin.*;
+import ms.wiwi.examarchive.ai.OpenAIClient;
 import ms.wiwi.examarchive.auth.AuthController;
 import ms.wiwi.examarchive.auth.OIDCService;
 import ms.wiwi.examarchive.controller.*;
 import ms.wiwi.examarchive.model.Role;
 import ms.wiwi.examarchive.model.User;
 import ms.wiwi.examarchive.services.*;
+import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.http.HttpCookie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -39,8 +42,10 @@ public class ExamArchive {
     private final MotdService motdService;
     private final EmailService emailService;
     private final AIService aiService;
+    private final OpenAIClient openAIClient;
     private final QuartoSandboxService quartoSandboxService;
     private final AzureService azureService;
+    private final PdfService pdfService = new PdfService();
     private final int semesterExamLimit;
     private final int weeklyTokenLimit;
     private final Logger logger = LoggerFactory.getLogger(ExamArchive.class);
@@ -107,19 +112,33 @@ public class ExamArchive {
         );
         logger.info("Azure service initialized");
         logger.info("Initializing AI service");
-        try {
-            aiService = new AIService(
+        String scanPrompt;
+        String genPrompt;
+        try (InputStream scanPromptStream = AIService.class.getResourceAsStream("/prompts/scan.md");
+             InputStream genPromptStream = AIService.class.getResourceAsStream("/prompts/gen.md")) {
+            scanPrompt = IOUtils.toString(Objects.requireNonNull(scanPromptStream), StandardCharsets.UTF_8);
+            genPrompt = IOUtils.toString(Objects.requireNonNull(genPromptStream), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            logger.error("Failed to load AI prompts", e);
+            throw new RuntimeException(e);
+        }
+        openAIClient = new OpenAIClient(
+                System.getenv("EXAMARCHIVE_AI_APIKEY"),
+                System.getenv("EXAMARCHIVE_AI_ENDPOINT"),
+                scanPrompt,
+                genPrompt,
+                4
+                );
+        aiService = new AIService(
                     repository,
                     s3Service,
                     quartoSandboxService,
-                    azureService,
-                    System.getenv("EXAMARCHIVE_AI_ENDPOINT"),
-                    System.getenv("EXAMARCHIVE_AI_APIKEY"));
+                    pdfService,
+                    openAIClient,
+                    azureService
+                    );
             weeklyTokenLimit = Integer.parseInt(System.getenv("EXAMARCHIVE_WEEKLY_TOKEN_LIMIT"));
             semesterExamLimit = Integer.parseInt(System.getenv("EXAMARCHIVE_SEMESTER_LIMIT"));
-        } catch (Exception e) {
-            throw new RuntimeException("Clould not initialize AI service", e);
-        }
         logger.info("AI service initialized. Ready to start!");
     }
 
@@ -155,7 +174,7 @@ public class ExamArchive {
             config.routes.get("/exams/module/{moduleid}/examai", examAIController::handleGet);
             config.routes.post("/exams/module/{moduleid}/examai", examAIController::handlePost);
             config.routes.sse("/exams/ai/job/{jobid}", examAIController::handleSse);
-            AddExamController addExamController = new AddExamController(repository, s3Service, emailService);
+            AddExamController addExamController = new AddExamController(repository, s3Service, emailService, pdfService);
             config.routes.get("/exams/upload", addExamController::handleGet);
             config.routes.post("/exams/upload", addExamController::handlePost);
             config.routes.get("/exams/upload/form-content", addExamController::handleFormContent);

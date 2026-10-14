@@ -7,6 +7,7 @@ import ms.wiwi.examarchive.model.*;
 import ms.wiwi.examarchive.model.Module;
 import ms.wiwi.examarchive.services.EmailService;
 import ms.wiwi.examarchive.services.JteLocalizer;
+import ms.wiwi.examarchive.services.PdfService;
 import ms.wiwi.examarchive.services.S3Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,11 +31,13 @@ public class AddExamController {
     private final Repository repository;
     private final S3Service s3Service;
     private final EmailService emailService;
+    private final PdfService pdfService;
 
-    public AddExamController(Repository repository, S3Service s3Service, EmailService emailService) {
+    public AddExamController(Repository repository, S3Service s3Service, EmailService emailService, PdfService pdfService) {
         this.repository = repository;
         this.emailService = emailService;
         this.s3Service = s3Service;
+        this.pdfService = pdfService;
     }
 
     public void handleGet(Context ctx) {
@@ -102,9 +105,31 @@ public class AddExamController {
         String fileID = UUID.randomUUID().toString();
         try (InputStream content = file.content()) {
             File pdf = Files.createTempFile(examId, ".pdf").toFile();
+            File sanizizedPDF = Files.createTempFile(examId + "-sanitized", ".pdf").toFile();
             Files.copy(content, pdf.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            s3Service.uploadPDF(pdf, fileID, S3Service.Bucket.EXAMS);
-            pdf.delete();
+            boolean success = pdfService.sanitizePdf(pdf, sanizizedPDF);
+            if(!success){
+                try {
+                    Files.delete(pdf.toPath());
+                    Files.delete(sanizizedPDF.toPath());
+                } catch (Exception e) {
+                    logger.error("Failed to delete temporary files", e);
+                }
+                errors.add("Failed to upload PDF");
+                List<Module> modules = repository.getAllModules();
+                ctx.render("addExamForm.jte", Map.of(
+                        "modules", modules,
+                        "errors", errors
+                ));
+                return;
+            }
+            s3Service.uploadPDF(sanizizedPDF, fileID, S3Service.Bucket.EXAMS);
+            try {
+                Files.delete(pdf.toPath());
+                Files.delete(sanizizedPDF.toPath());
+            } catch (Exception e) {
+                logger.error("Failed to delete temporary files", e);
+            }
             Professor professor = repository.getOrCreateProfessor(firstName, lastName);
             String examName = module.name() + "-" + semesterStr + "-" + yearStr;
             Exam exam = new Exam(examName, examId, module.moduleID(), year, semester, Instant.now(), fileID, user.id(), ExamStatus.PENDING, professor.professorID(), null);
