@@ -18,10 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.Year;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.regex.Pattern;
 
 public class AddExamController {
@@ -103,15 +100,17 @@ public class AddExamController {
         User user = ctx.sessionAttribute("user");
         String examId = UUID.randomUUID().toString();
         String fileID = UUID.randomUUID().toString();
+        File pdf = null;
+        File sanitizedPDF = null;
         try (InputStream content = file.content()) {
-            File pdf = Files.createTempFile(examId, ".pdf").toFile();
-            File sanizizedPDF = Files.createTempFile(examId + "-sanitized", ".pdf").toFile();
+            pdf = Files.createTempFile(examId, ".pdf").toFile();
+            sanitizedPDF = Files.createTempFile(examId + "-sanitized", ".pdf").toFile();
             Files.copy(content, pdf.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            boolean success = pdfService.sanitizePdf(pdf, sanizizedPDF);
+            boolean success = pdfService.sanitizePdf(pdf, sanitizedPDF);
             if(!success){
                 try {
                     Files.delete(pdf.toPath());
-                    Files.delete(sanizizedPDF.toPath());
+                    Files.delete(sanitizedPDF.toPath());
                 } catch (Exception e) {
                     logger.error("Failed to delete temporary files", e);
                 }
@@ -123,13 +122,7 @@ public class AddExamController {
                 ));
                 return;
             }
-            s3Service.uploadPDF(sanizizedPDF, fileID, S3Service.Bucket.EXAMS);
-            try {
-                Files.delete(pdf.toPath());
-                Files.delete(sanizizedPDF.toPath());
-            } catch (Exception e) {
-                logger.error("Failed to delete temporary files", e);
-            }
+            s3Service.uploadPDF(sanitizedPDF, fileID, S3Service.Bucket.EXAMS);
             Professor professor = repository.getOrCreateProfessor(firstName, lastName);
             String examName = module.name() + "-" + semesterStr + "-" + yearStr;
             Exam exam = new Exam(examName, examId, module.moduleID(), year, semester, Instant.now(), fileID, user.id(), ExamStatus.PENDING, professor.professorID(), null);
@@ -164,6 +157,13 @@ public class AddExamController {
             logger.error("Error uploading file: ", e);
             s3Service.deleteFile(fileID, S3Service.Bucket.EXAMS);
             errors.add(JteLocalizer.lookup("addExam.error.fileUploadFailed"));
+        } finally {
+            try{
+                Files.deleteIfExists(Objects.requireNonNull(pdf).toPath());
+                Files.deleteIfExists(Objects.requireNonNull(sanitizedPDF).toPath());
+            } catch (Exception e) {
+                logger.error("Failed to delete temporary files", e);
+            }
         }
         if (!errors.isEmpty()) {
             List<Module> modules = repository.getAllModules();
