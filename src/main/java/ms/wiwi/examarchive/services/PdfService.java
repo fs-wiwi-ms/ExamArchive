@@ -32,12 +32,12 @@ public class PdfService {
      * @param dpi DPI value for the JPEG images
      * @return List of JPEG images as byte arrays
      */
-    public List<byte[]> convertPdfToImages(byte[] pdf , int dpi) throws RuntimeException{
+    public List<byte[]> convertPdfToImages(byte[] pdf , int dpi, int maxPages) throws RuntimeException{
         List<byte[]> images = new ArrayList<>();
         try (PDDocument document = Loader.loadPDF(pdf)) {
             PDFRenderer renderer = new PDFRenderer(document);
             int pageCount = document.getNumberOfPages();
-            for (int page = 0; page < pageCount; page++) {
+            for (int page = 0; page < pageCount && page < maxPages; page++) {
                 BufferedImage image = renderer.renderImageWithDPI(page, dpi, ImageType.RGB);
                 try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
                     ImageIO.write(image, "JPEG", baos);

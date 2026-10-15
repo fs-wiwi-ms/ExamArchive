@@ -60,7 +60,7 @@ public class AIService {
         String id = UUID.randomUUID().toString();
         ExamAIJob job = new ExamAIJob(id, moduleid, ExamAIStatus.FETCH_EXAMS, user);
         for(ExamAIJob i : jobs.values()){
-            if(i.user().id().equals(user.id())){
+            if(i.user().id().equals(user.id()) && !(i.status() == ExamAIStatus.FAILED || i.status() == ExamAIStatus.DONE)){
                 updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, "You already have an exam generation in progress");
                 return id;
             }
@@ -153,7 +153,7 @@ public class AIService {
                     try {
                         logger.info("Scanning Exam " + item.examID() + " (" + item.name() + ")");
                         byte[] examPDF = s3Service.downloadFile(item.fileID(), S3Service.Bucket.EXAMS);
-                        List<byte[]> images = pdfService.convertPdfToImages(examPDF, 150);
+                        List<byte[]> images = pdfService.convertPdfToImages(examPDF, 150, 50);
                         String scan = openAIClient.scanExamWithAI(images);
                         Exam newExam = new Exam(item.name(),
                                 item.examID(),
