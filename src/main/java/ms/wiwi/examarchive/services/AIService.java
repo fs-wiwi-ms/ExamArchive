@@ -132,6 +132,7 @@ public class AIService {
                   echo: false
                   warning: false
                   message: false
+                  error: true
                 ---
                 
                 """.formatted(module.name() != null ? module.name() : "Klausur");
