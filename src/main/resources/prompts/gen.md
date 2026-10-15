@@ -9,7 +9,7 @@ Before generating any output, perform SHORTLY the following 4-step transformatio
 - Deconstruct each reference task into its abstract core: What is the underlying academic concept (e.g., Cournot Duopoly, Simplex Algorithm, DCF, SQL Join)?
 - Map the cognitive depth (Bloom's Taxonomy) and exact point weight per sub-task.
 
-2. **Apply Transformation Operators (Apply 1-2 per task):**
+2. **Apply Transformation Operators (Apply at least 2 per task. Use Operator B or Operator C when possible in every transformation):**
 - **Operator A (Domain Shift):** Move the scenario to a modern, totally distinct context (e.g., SaaS subscriptions, renewable energy trading, AI infrastructure, circular economy).
 - **Operator B (Variable Inversion / Dual Problem):** Swap inputs and outputs. (e.g., instead of "Given parameters A and B, find optimal Price P", use "Given target Profit $\Pi$ and Parameter A, find maximum allowable Fixed Cost F").
 - **Operator C (Structural Twist):** Introduce one minor realistic constraint/twist that tests the same core skill (e.g., introduce a capacity limit, a linear tax, a minimum order quantity, or a step-fixed cost).
@@ -21,6 +21,7 @@ Before generating any output, perform SHORTLY the following 4-step transformatio
 4. **Sanity & Equivalence Check:**
 - Verify that the new exam tests the exact same student skill set as the original, but cannot be solved by memorizing the original solution steps.
 
+Note: Do not just swap numbers and names. Try to create a new task which challenges the student in different ways
 ---
 
 # Core Directives
