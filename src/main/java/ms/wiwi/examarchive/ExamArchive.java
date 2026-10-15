@@ -11,6 +11,7 @@ import ms.wiwi.examarchive.auth.OIDCService;
 import ms.wiwi.examarchive.controller.*;
 import ms.wiwi.examarchive.model.Role;
 import ms.wiwi.examarchive.model.User;
+import ms.wiwi.examarchive.model.UserExam;
 import ms.wiwi.examarchive.services.*;
 import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.http.HttpCookie;
@@ -21,12 +22,14 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class ExamArchive {
 
@@ -295,11 +298,29 @@ public class ExamArchive {
     }
 
     /**
-     * Deletes users from the database that have not logged in for three years.
+     * Deletes users from the database that have not logged in for two years.
      */
     private void scheduleUserDeletion() {
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-        scheduler.scheduleAtFixedRate(repository::deleteOldAccounts, 0, 1, TimeUnit.DAYS);
-        //TODO delte user exams
+        scheduler.scheduleAtFixedRate(() -> {
+            logger.info("Deleting users that have not logged in for two years");
+            List<User> users = repository.getAccountsToDelete();
+            if(users.isEmpty())
+                return;
+            List<UserExam> userExams = users.stream().map(repository::getAllUserExams).flatMap(List::stream).toList();
+            userExams.forEach(userExam -> {
+                try {
+                    logger.info("Deleting user exam with id {} ({})", userExam.id(), userExam.fileID());
+                    s3Service.deleteFile(userExam.id(), S3Service.Bucket.USER_EXAMS);
+                    repository.deleteUserExam(userExam.id());
+                } catch (Exception e) {
+                    logger.error("Failed to delete user exam with id {} ({})", userExam.id(), userExam.fileID(), e);
+                }
+            });
+            users.forEach(user -> {
+                logger.info("Deleting user with id {} ({})", user.id(), user.email());
+            });
+            repository.deleteOldAccounts(users.stream().map(User::id).toList());
+        }, 0, 12, TimeUnit.HOURS);
     }
 }

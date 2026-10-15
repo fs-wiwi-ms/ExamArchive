@@ -986,15 +986,51 @@ public class Repository {
 
 
     /**
-     * Deletes old accounts, older than three years
+     * Gets old accounts, older than three years
      */
-    public void deleteOldAccounts() {
+    public List<User> getAccountsToDelete() {
         try(Connection connection = dbManager.getConnection();
-        PreparedStatement statement = connection.prepareStatement("DELETE FROM users WHERE lastlogin < NOW() - INTERVAL '3 years'")) {
+        PreparedStatement statement = connection.prepareStatement("SELECT userid, firstname, lastname, lastlogin, createdat, email, role  FROM users WHERE lastlogin < NOW() - INTERVAL '2 years'")) {
+            ResultSet resultSet = statement.executeQuery();
+            List<User> usersToDelete = new ArrayList<>();
+            while (resultSet.next()) {
+                String userid = resultSet.getString("userid");
+                String firstname = resultSet.getString("firstname");
+                String lastname = resultSet.getString("lastname");
+                Timestamp lastlogin = resultSet.getTimestamp("lastlogin");
+                Timestamp createdat = resultSet.getTimestamp("createdat");
+                String email = resultSet.getString("email");
+                String role = resultSet.getString("role");
+                usersToDelete.add(new User(userid, firstname, lastname, lastlogin.toInstant(), createdat.toInstant(), email, Role.valueOf(role)));
+            }
+            return usersToDelete;
+        } catch (SQLException e) {
+            logger.error("Could get old accounts", e);
+        }
+        return List.of();
+    }
+
+    public void deleteOldAccounts(List<String> userid){
+        try(Connection connection = dbManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement("DELETE FROM users WHERE userid = ANY(?)");) {
+            statement.setArray(1, connection.createArrayOf("text", userid.toArray(new String[0])));
             int result = statement.executeUpdate();
             logger.info("Deleted {} old accounts", result);
         } catch (SQLException e) {
             logger.error("Could not delete old accounts", e);
+        }
+    }
+
+    public void deleteUserExam(String id){
+        if(id == null || id.isBlank())
+            return;
+        try(Connection connection = dbManager.getConnection();
+        PreparedStatement statement = connection.prepareStatement("DELETE FROM user_exams WHERE id = ?")) {
+            statement.setString(1, id);
+            int result = statement.executeUpdate();
+            logger.info("Deleted {} exam", result);
+        } catch (SQLException e) {
+            logger.error("Could not delete exam", e);
         }
     }
 
