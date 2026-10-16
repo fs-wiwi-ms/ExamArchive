@@ -29,6 +29,7 @@
      hx-ext="sse"
      sse-connect="/exams/ai/job/${job.id()}"
      sse-swap="message"
+     sse-close="sse-stop">
      hx-swap="innerHTML">
     @endif
 
