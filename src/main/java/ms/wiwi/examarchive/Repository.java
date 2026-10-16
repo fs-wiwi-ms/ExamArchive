@@ -1312,7 +1312,7 @@ public class Repository {
             PreparedStatement statement = connection.prepareStatement(sql);
             ResultSet resultSet = statement.executeQuery()) {
             if (resultSet.next()) {
-                return new AzureService.AzureCreditDTO(resultSet.getDouble("current_credits"), resultSet.getDouble("current_amount"), resultSet.getTimestamp("last_update").toInstant());
+                return new AzureService.AzureCreditDTO(resultSet.getDouble("current_credit"), resultSet.getDouble("current_amount"), resultSet.getTimestamp("last_update").toInstant());
             }
         } catch (SQLException e) {
             logger.error("Could not get Azure credits", e);
