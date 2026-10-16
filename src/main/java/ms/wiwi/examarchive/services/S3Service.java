@@ -1,15 +1,7 @@
 package ms.wiwi.examarchive.services;
 
 import io.minio.*;
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.io.RandomAccessReadBufferedFile;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.interactive.action.PDActionJavaScript;
-import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotation;
-import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink;
-import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget;
+import io.minio.errors.MinioException;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +19,6 @@ public class S3Service {
     private static final Logger logger = LoggerFactory.getLogger(S3Service.class);
 
     private final MinioClient s3client;
-    private final String bucketName;
 
     /**
      * Creates a new S3Service instance.
@@ -35,20 +26,18 @@ public class S3Service {
      * @param endpoint   S3 Service endpoint
      * @param accessKey  S3 Access Key
      * @param secretKey  S3 Secret Key
-     * @param bucketName Name of the S3 bucket
      */
-    public S3Service(String endpoint, String accessKey, String secretKey, String bucketName) {
+    public S3Service(String endpoint, String accessKey, String secretKey) {
         s3client = MinioClient.builder().endpoint(endpoint).credentials(accessKey, secretKey).build();
-        this.bucketName = bucketName;
     }
 
     /**
      * Creates the S3 bucket if it doesn't exist.
      */
-    public void createBucketIfNotExists(){
+    public void createBucketIfNotExists(Bucket bucket) {
         try {
-            if(!s3client.bucketExists(BucketExistsArgs.builder().bucket(bucketName).build())){
-                s3client.makeBucket(MakeBucketArgs.builder().bucket(bucketName).build());
+            if(!s3client.bucketExists(BucketExistsArgs.builder().bucket(bucket.name()).build())){
+                s3client.makeBucket(MakeBucketArgs.builder().bucket(bucket.name()).build());
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -62,30 +51,17 @@ public class S3Service {
      * @param objectName The destination key/name in the S3 bucket
      * @throws RuntimeException When upload fails or sanitization fails
      */
-    public void uploadPDF(File file, String objectName) throws RuntimeException {
-        File tempSanitizedFile = null;
+    public void uploadPDF(File file, String objectName, Bucket bucket) throws RuntimeException {
         try {
-            tempSanitizedFile = File.createTempFile("sanitized-upload-", ".pdf");
-            boolean isSanitized = sanitizePdf(file, tempSanitizedFile);
-            if (!isSanitized) {
-                throw new IOException("Failed to sanitize the PDF. Upload aborted.");
-            }
-            try (InputStream is = new FileInputStream(tempSanitizedFile)) {
-                s3client.putObject(PutObjectArgs.builder().bucket(bucketName).object(objectName).stream(is, tempSanitizedFile.length(), -1L)
+            try (InputStream is = new FileInputStream(file)) {
+                s3client.putObject(PutObjectArgs.builder().bucket(bucket.name()).object(objectName).stream(is, file.length(), -1L)
                         .contentType("application/pdf").build());
 
-                logger.info("Successfully uploaded sanitized PDF to {}/{}", bucketName, objectName);
+                logger.info("Successfully uploaded sanitized PDF to {}/{}", bucket.name(), objectName);
             }
         } catch (Exception e) {
             logger.error("Error uploading PDF: {}", objectName, e);
             throw new RuntimeException("Could not upload PDF to S3", e);
-        } finally {
-            if (tempSanitizedFile != null && tempSanitizedFile.exists()) {
-                boolean deleted = tempSanitizedFile.delete();
-                if (!deleted) {
-                    logger.warn("Could not delete temporary sanitized file: {}", tempSanitizedFile.getAbsolutePath());
-                }
-            }
         }
     }
 
@@ -106,11 +82,11 @@ public class S3Service {
     /**
      * Deletes an object from the S3 bucket.
      */
-    public void deleteFile(String objectName) {
+    public void deleteFile(String objectName, Bucket bucket) {
         try {
-            s3client.removeObject(RemoveObjectArgs.builder().bucket(bucketName).object(objectName).build());
+            s3client.removeObject(RemoveObjectArgs.builder().bucket(bucket.name()).object(objectName).build());
         } catch (Exception e) {
-            logger.error("Could not delete object {} in bucket {}", objectName, bucketName);
+            logger.error("Could not delete object {} in bucket {}", objectName, bucket.name(), e);
         }
     }
 
@@ -121,59 +97,44 @@ public class S3Service {
      * @param filename   Name of the file to be downloaded
      * @return Presigned URL for the file, or null if the URL could not be created
      */
-    public @Nullable String createPresignedUrl(String objectName, String filename) {
+    public @Nullable String createPresignedUrl(String objectName, String filename, Bucket bucket) {
         try {
             Map<String, String> reqParams = new HashMap<>();
             reqParams.put("response-content-disposition", "attachment; filename=\"" + filename + "\"");
-            return s3client.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder().method(Http.Method.GET).bucket(bucketName).object(objectName).expiry(10, TimeUnit.MINUTES).extraQueryParams(reqParams).build());
+            return s3client.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder().method(Http.Method.GET).bucket(bucket.name()).object(objectName).expiry(10, TimeUnit.MINUTES).extraQueryParams(reqParams).build());
         } catch (Exception e) {
-            logger.error("Could not create presigned URL for object {} in bucket {}", objectName, bucketName, e);
+            logger.error("Could not create presigned URL for object {} in bucket {}", objectName, bucket.name(), e);
             return null;
         }
     }
 
+    public byte[] downloadFile(String id, Bucket bucket){
+        try (GetObjectResponse response = s3client.getObject(GetObjectArgs.builder().bucket(bucket.bucketName).object(id).build())){
+            return response.readAllBytes();
+        } catch (IOException | MinioException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     /**
-     * Sanitizes a PDF file by removing all JavaScript, embedded files, and open actions.
-     *
-     * @param inputFile PDF file to sanitize
-     * @param sanitizedOutputFile Output file for the sanitized PDF
-     * @return True if the PDF was sanitized successfully, false otherwise. When returning false, the sanitizedOutputFile file will not exist
-     * and the input should be rejected by the caller.
+     * Represents a Bucket for the S3Service
      */
-    public boolean sanitizePdf(File inputFile, File sanitizedOutputFile) {
-        try (RandomAccessReadBufferedFile buffer = new RandomAccessReadBufferedFile(inputFile); PDDocument document = Loader.loadPDF(buffer)) {
-            PDDocumentCatalog catalog = document.getDocumentCatalog();
-            if (catalog.getNames() != null && catalog.getNames().getJavaScript() != null) {
-                catalog.getNames().setJavascript(null);
-            }
-            if (catalog.getNames() != null && catalog.getNames().getEmbeddedFiles() != null) {
-                catalog.getNames().setEmbeddedFiles(null);
-            }
-            if (catalog.getOpenAction() != null) {
-                catalog.setOpenAction(null);
-            }
-            for (PDPage page : document.getPages()) {
-                for (PDAnnotation annotation : page.getAnnotations()) {
-                    if (annotation instanceof PDAnnotationLink link) {
-                        if (link.getAction() instanceof PDActionJavaScript) {
-                            link.setAction(null);
-                        }
-                    }
-                    if (annotation instanceof PDAnnotationWidget widget) {
-                        if (widget.getActions() != null) {
-                            widget.setActions(null);
-                        }
-                    }
-                }
-            }
-            document.save(sanitizedOutputFile);
-            return true;
-        } catch (IOException e) {
-            logger.error("Failed to sanitize PDF {}", inputFile.getName());
-            if (sanitizedOutputFile.exists()) {
-                sanitizedOutputFile.delete();
-            }
-            return false;
+    public static class Bucket {
+        public static final Bucket EXAMS = new Bucket("exams");
+        public static final Bucket USER_EXAMS = new Bucket("user-exams");
+
+        private String bucketName;
+
+        private Bucket(String bucketName) {
+            this.bucketName = bucketName;
+        }
+
+        public String name() {
+            return bucketName;
+        }
+
+        public void setName(String bucketName) {
+            this.bucketName = bucketName;
         }
     }
 }

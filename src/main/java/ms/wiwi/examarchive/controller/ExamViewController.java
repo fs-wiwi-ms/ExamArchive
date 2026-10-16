@@ -40,7 +40,7 @@ public class ExamViewController implements Handler {
             return;
         }
         String fileId = exam.fileID();
-        String url = s3Service.createPresignedUrl(fileId, exam.name() + ".pdf");
+        String url = s3Service.createPresignedUrl(fileId, exam.name() + ".pdf", S3Service.Bucket.EXAMS);
         if(url == null){
             ctx.status(404);
             return;

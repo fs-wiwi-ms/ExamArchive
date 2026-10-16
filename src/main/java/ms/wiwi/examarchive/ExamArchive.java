@@ -4,27 +4,32 @@ import gg.jte.ContentType;
 import gg.jte.TemplateEngine;
 import io.javalin.Javalin;
 import io.javalin.rendering.template.JavalinJte;
-import ms.wiwi.examarchive.admin.AdminExamsController;
-import ms.wiwi.examarchive.admin.AdminIndexController;
-import ms.wiwi.examarchive.admin.AdminSettingsController;
-import ms.wiwi.examarchive.admin.AdminUsersController;
+import ms.wiwi.examarchive.admin.*;
+import ms.wiwi.examarchive.ai.OpenAIClient;
 import ms.wiwi.examarchive.auth.AuthController;
 import ms.wiwi.examarchive.auth.OIDCService;
 import ms.wiwi.examarchive.controller.*;
 import ms.wiwi.examarchive.model.Role;
 import ms.wiwi.examarchive.model.User;
+import ms.wiwi.examarchive.model.UserExam;
 import ms.wiwi.examarchive.services.*;
+import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.http.HttpCookie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class ExamArchive {
 
@@ -39,6 +44,13 @@ public class ExamArchive {
     private final S3Service s3Service;
     private final MotdService motdService;
     private final EmailService emailService;
+    private final AIService aiService;
+    private final OpenAIClient openAIClient;
+    private final QuartoSandboxService quartoSandboxService;
+    private final AzureService azureService;
+    private final PdfService pdfService = new PdfService();
+    private final int semesterExamLimit;
+    private final int weeklyTokenLimit;
     private final Logger logger = LoggerFactory.getLogger(ExamArchive.class);
 
     public ExamArchive(){
@@ -66,15 +78,17 @@ public class ExamArchive {
         repository = new Repository(dbManager);
         Runtime.getRuntime().addShutdownHook(new Thread(dbManager::close));
         logger.info("Connecting to S3");
+        S3Service.Bucket.EXAMS.setName(System.getenv("EXAMARCHIVE_STORAGE_BUCKET"));
+        S3Service.Bucket.USER_EXAMS.setName(System.getenv("EXAMARCHIVE_USER_STORAGE_BUCKET"));
         s3Service = new S3Service(
                 System.getenv("EXAMARCHIVE_STORAGE_ENDPOINT"),
                 System.getenv("EXAMARCHIVE_STORAGE_ACCESS_KEY"),
-                System.getenv("EXAMARCHIVE_STORAGE_SECRET_KEY"),
-                System.getenv("EXAMARCHIVE_STORAGE_BUCKET"));
+                System.getenv("EXAMARCHIVE_STORAGE_SECRET_KEY"));
         if(!s3Service.testConnection()){
             throw new RuntimeException("Could not connect to S3");
         }
-        s3Service.createBucketIfNotExists();
+        s3Service.createBucketIfNotExists(S3Service.Bucket.EXAMS);
+        s3Service.createBucketIfNotExists(S3Service.Bucket.USER_EXAMS);
         logger.info("S3 connection established");
         motdService = new MotdService(repository);
         emailService = new EmailService(
@@ -88,6 +102,47 @@ public class ExamArchive {
             logger.error("Could not connect to SMTP server. Proceed starting without email service.");
         }
         logger.info("Email service initialized");
+        logger.info("Initializing Quarto sandbox service");
+        quartoSandboxService = new QuartoSandboxService(
+                System.getenv("EXAMARCHIVE_DOCKER_SOCK"),
+                System.getenv("EXAMARCHIVE_DOCKER_RUNTIME")
+        );
+        logger.info("Quarto sandbox service initialized");
+        logger.info("Initializing Azure service");
+        azureService = new AzureService(
+                System.getenv("EXAMARCHIVE_AZURE_WEBHOOK_SECRET"),
+                repository
+        );
+        logger.info("Azure service initialized");
+        logger.info("Initializing AI service");
+        String scanPrompt;
+        String genPrompt;
+        try (InputStream scanPromptStream = AIService.class.getResourceAsStream("/prompts/scan.md");
+             InputStream genPromptStream = AIService.class.getResourceAsStream("/prompts/gen.md")) {
+            scanPrompt = IOUtils.toString(Objects.requireNonNull(scanPromptStream), StandardCharsets.UTF_8);
+            genPrompt = IOUtils.toString(Objects.requireNonNull(genPromptStream), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            logger.error("Failed to load AI prompts", e);
+            throw new RuntimeException(e);
+        }
+        openAIClient = new OpenAIClient(
+                System.getenv("EXAMARCHIVE_AI_APIKEY"),
+                System.getenv("EXAMARCHIVE_AI_ENDPOINT"),
+                scanPrompt,
+                genPrompt,
+                4
+                );
+        aiService = new AIService(
+                    repository,
+                    s3Service,
+                    quartoSandboxService,
+                    pdfService,
+                    openAIClient,
+                    azureService
+                    );
+            weeklyTokenLimit = Integer.parseInt(System.getenv("EXAMARCHIVE_WEEKLY_TOKEN_LIMIT"));
+            semesterExamLimit = Integer.parseInt(System.getenv("EXAMARCHIVE_SEMESTER_LIMIT"));
+        logger.info("AI service initialized. Ready to start!");
     }
 
     /**
@@ -95,6 +150,7 @@ public class ExamArchive {
      */
     private void start() {
         dbManager.migrateDatabase();
+        azureService.loadFromDatabase();
         logger.info("Starting webserver");
         AuthController authController = new AuthController(oidcService, repository, System.getenv("KEYCLOAK_USER_AFFILIATION"), System.getenv("KEYCLOAK_ADMIN_AFFILIATION"), System.getenv("EXAMARCHIVE_ADMIN_EMAIL"));
         Javalin javalin = Javalin.create(config -> {
@@ -107,6 +163,7 @@ public class ExamArchive {
                 ctx.render("index.jte");
             });
             config.staticFiles.add("/public");
+            config.routes.post("/api/azure_webhook", azureService::handleWebhook);
             config.routes.get("/login/{type}", authController::login);
             config.routes.get("/auth/callback", authController::callback);
             config.routes.get("/logout", authController::logout);
@@ -116,7 +173,11 @@ public class ExamArchive {
             ShowModuleController showModuleHandler = new ShowModuleController(repository);
             config.routes.get("/exams/module/{moduleid}", showModuleHandler::handleGet);
             config.routes.post("/exams/module/{moduleid}/filter", showModuleHandler::handleFilter);
-            AddExamController addExamController = new AddExamController(repository, s3Service, emailService);
+            ExamAIController examAIController = new ExamAIController(repository, aiService, semesterExamLimit, weeklyTokenLimit);
+            config.routes.get("/exams/module/{moduleid}/examai", examAIController::handleGet);
+            config.routes.post("/exams/module/{moduleid}/examai", examAIController::handlePost);
+            config.routes.sse("/exams/ai/job/{jobid}", examAIController::handleSse);
+            AddExamController addExamController = new AddExamController(repository, s3Service, emailService, pdfService);
             config.routes.get("/exams/upload", addExamController::handleGet);
             config.routes.post("/exams/upload", addExamController::handlePost);
             config.routes.get("/exams/upload/form-content", addExamController::handleFormContent);
@@ -147,7 +208,10 @@ public class ExamArchive {
             AdminSettingsController adminSettingsController = new AdminSettingsController(motdService, repository);
             config.routes.get("/admin/settings", adminSettingsController::handleGet);
             config.routes.post("/admin/updatemotd", adminSettingsController::handleUpdateMotdPost);
+            config.routes.get("/admin/ai", new AdminAIController(repository, azureService, weeklyTokenLimit));
             config.routes.get("/dropdown", new HeaderController());
+            config.routes.get("/exams/usercontent/download/{userexamid}", new UserExamDownloadController(repository, s3Service));
+            config.routes.get("/exams/usercontent/list", new UserExamListController(repository));
             config.routes.before("/exams/*", ctx -> {
                 if(ctx.sessionAttribute("user") == null){
                     ctx.skipRemainingHandlers();
@@ -234,10 +298,29 @@ public class ExamArchive {
     }
 
     /**
-     * Deletes users from the database that have not logged in for three years.
+     * Deletes users from the database that have not logged in for two years.
      */
     private void scheduleUserDeletion() {
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-        scheduler.scheduleAtFixedRate(repository::deleteOldAccounts, 0, 1, TimeUnit.DAYS);
+        scheduler.scheduleAtFixedRate(() -> {
+            logger.info("Deleting users that have not logged in for two years");
+            List<User> users = repository.getAccountsToDelete();
+            if(users.isEmpty())
+                return;
+            List<UserExam> userExams = users.stream().map(repository::getAllUserExams).flatMap(List::stream).toList();
+            userExams.forEach(userExam -> {
+                try {
+                    logger.info("Deleting user exam with id {} ({})", userExam.id(), userExam.fileID());
+                    s3Service.deleteFile(userExam.id(), S3Service.Bucket.USER_EXAMS);
+                    repository.deleteUserExam(userExam.id());
+                } catch (Exception e) {
+                    logger.error("Failed to delete user exam with id {} ({})", userExam.id(), userExam.fileID(), e);
+                }
+            });
+            users.forEach(user -> {
+                logger.info("Deleting user with id {} ({})", user.id(), user.email());
+            });
+            repository.deleteOldAccounts(users.stream().map(User::id).toList());
+        }, 0, 12, TimeUnit.HOURS);
     }
 }
