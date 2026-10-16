@@ -88,15 +88,18 @@ public class ExamAIController {
 
     public void handleSse(@NotNull SseClient client) {
         String jobID = client.ctx().pathParam("jobid");
+        ExamAIJob currentJob = aiService.getJob(jobID);
+        if(currentJob == null){
+            client.close();
+            return;
+        }
         client.keepAlive();
         sseClients.put(jobID, client);
         client.onClose(() -> sseClients.remove(jobID));
-        ExamAIJob currentJob = aiService.getJob(jobID);
-        if (currentJob != null) {
-            client.sendEvent("message", renderJob(currentJob));
-            if (currentJob.status() == ExamAIStatus.DONE || currentJob.status() == ExamAIStatus.FAILED) {
-                client.close();
-            }
+        client.sendEvent("message", renderJob(currentJob));
+        if (currentJob.status() == ExamAIStatus.DONE || currentJob.status() == ExamAIStatus.FAILED) {
+            client.sendEvent("sse-stop", "sse-stop");
+            client.close();
         }
     }
 
