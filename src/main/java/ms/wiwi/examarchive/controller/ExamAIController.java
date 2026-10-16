@@ -76,6 +76,7 @@ public class ExamAIController {
             }
             sseClient.sendEvent("message", renderJob(job));
             if (job.status() == ExamAIStatus.DONE || job.status() == ExamAIStatus.FAILED) {
+                sseClient.sendEvent("sse-stop", "sse-stop");
                 sseClient.close();
             }
         });
