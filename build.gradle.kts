@@ -38,6 +38,10 @@ dependencies {
     //DOCKER
     implementation("com.github.docker-java:docker-java-core:3.7.0")
     implementation("com.github.docker-java:docker-java-transport-httpclient5:3.7.0")
+
+    //WEBJARS
+    implementation("org.webjars.npm:htmx.org:2.0.7")
+    implementation("org.webjars.npm:htmx-ext-sse:2.2.4")
 }
 
 jte {
