@@ -9,7 +9,7 @@
 <!Doctype html>
 <html lang="de" data-theme="light">
 <head>
-    <script src="/assets/htmx.js"></script>
+    <script src="/webjars/htmx.org/2.0.7/dist/htmx.min.js"></script>
     <link rel="stylesheet" href="/assets/pico.min.css">
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
