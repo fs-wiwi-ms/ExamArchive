@@ -8,9 +8,11 @@ import io.javalin.http.sse.SseClient;
 import ms.wiwi.examarchive.Repository;
 import ms.wiwi.examarchive.ai.ExamAIJob;
 import ms.wiwi.examarchive.ai.ExamAIStatus;
+import ms.wiwi.examarchive.ai.OpenAIClient;
 import ms.wiwi.examarchive.model.Professor;
 import ms.wiwi.examarchive.model.User;
 import ms.wiwi.examarchive.services.AIService;
+import ms.wiwi.examarchive.services.ApiKeyEncryptionService;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -22,42 +24,49 @@ public class ExamAIController {
     private final Repository repository;
     private final TemplateEngine templateEngine;
     private final AIService aiService;
-    private final int maxExamsPerSemester;
-    private final int maxTokenPerWeek;
+    private final OpenAIClient openAIClient;
+    private final ApiKeyEncryptionService apiKeyEncryptionService;
     private final Map<String, SseClient>  sseClients = new ConcurrentHashMap<>();
 
-    public ExamAIController(Repository repo, AIService aiService, int maxExamsPerSemester, int maxTokenPerWeek) {
+    public ExamAIController(Repository repo, AIService aiService, OpenAIClient openAIClient, ApiKeyEncryptionService apiKeyEncryptionService) {
         this.repository = repo;
         this.aiService = aiService;
-        this.maxExamsPerSemester = maxExamsPerSemester;
-        this.maxTokenPerWeek = maxTokenPerWeek;
         this.templateEngine = TemplateEngine.createPrecompiled(ContentType.Html);
+        this.openAIClient = openAIClient;
+        this.apiKeyEncryptionService = apiKeyEncryptionService;
     }
 
     public void handleGet(@NotNull Context context) {
         String moduleID = context.pathParam("moduleid");
+        String apiKey = repository.getApiKeyForUser(context.sessionAttribute("user"));
+        if (apiKey == null) {
+            context.render("enterApiKey.jte", Map.of("moduleid", moduleID));
+            return;
+        }
+        try {
+            apiKey = apiKeyEncryptionService.decrypt(apiKey);
+            if(apiKey.isBlank()) {
+                context.render("enterApiKey.jte", Map.of("moduleid", moduleID));;
+                return;
+            }
+            if(!openAIClient.testAPIKey(apiKey)) {
+                context.render("enterApiKey.jte", Map.of("moduleid", moduleID));;
+                return;
+            }
+        } catch (Exception e) {
+            context.render("enterApiKey.jte", Map.of("moduleid", moduleID));;
+            return;
+        }
         context.render("generateExam.jte", Map.of("professors", repository.searchProfessorsForModule(moduleID, null, null),
-                "moduleid",moduleID,
-                "userLimit", maxExamsPerSemester,
-                "userUsage", repository.calculateUserUsage(context.sessionAttribute("user"))));
+                "moduleid",moduleID));
+    }
+
+    public void handlePostApiKey(Context context) {
+        //TODO create jte template for post api key and implement handling here
     }
 
     public void handlePost(@NotNull Context context) {
         User user = context.sessionAttribute("user");
-        int usage = repository.calculateUserUsage(user);
-        int globalUsage = repository.calculateNetTokenUsage();
-        if (usage >= maxExamsPerSemester) {
-            ExamAIJob errorJob = new ExamAIJob("error", "error", ExamAIStatus.FAILED, user);
-            errorJob.errorMessage("You have reached the maximum number of exams per semester");
-            context.result(renderJob(errorJob));
-            return;
-        }
-        if (globalUsage >= maxTokenPerWeek) {
-            ExamAIJob errorJob = new ExamAIJob("error", "error", ExamAIStatus.FAILED, user);
-            errorJob.errorMessage("The global token limit has been reached. Please try again tomorrow");
-            context.result(renderJob(errorJob));
-            return;
-        }
         String moduleID = context.pathParam("moduleid");
         int year = 0;
         if (context.formParam("year") != null && !context.formParam("year").isBlank()) {

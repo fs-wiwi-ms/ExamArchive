@@ -1,12 +1,10 @@
 @import java.util.List
 @import ms.wiwi.examarchive.model.Professor
-@import ms.wiwi.examarchive.model.Module
 @import ms.wiwi.examarchive.services.JteLocalizer
 
 @param List<Professor> professors
 @param String moduleid
-@param int userLimit
-@param int userUsage
+
 <!Doctype html>
 <html lang="de" data-theme="light">
 <head>
@@ -100,14 +98,10 @@
                         </div>
                     </fieldset>
                     <div class="form-actions">
-                        @if(userUsage >= userLimit)
-                            <button aria-disabled="true" disabled class="secondary">Klausur generieren</button>
-                        @else
-                            <button hx-post="/exams/module/${moduleid}/examai" hx-target="#main-content">Klausur generieren</button>
-                        @endif
+
+                        <button hx-post="/exams/module/${moduleid}/examai" hx-target="#main-content">Klausur generieren</button>
                     </div>
                 </form>
-                @template.usageLimit(used = userUsage, max = userLimit)
             </main>
 
             <footer>

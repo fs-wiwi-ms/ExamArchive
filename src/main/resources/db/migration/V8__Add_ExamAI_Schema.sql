@@ -8,3 +8,5 @@ CREATE TABLE user_exams(
     input_tokens INTEGER,
     output_tokens INTEGER
 );
+
+ALTER TABLE users ADD COLUMN uni_api_key TEXT;

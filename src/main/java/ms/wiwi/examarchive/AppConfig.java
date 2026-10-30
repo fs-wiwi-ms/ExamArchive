@@ -26,12 +26,9 @@ public record AppConfig(
         String smtpFrom,
         String dockerSock,
         String dockerRuntime,
-        String azureWebhookSecret,
-        String aiApiKey,
         String aiEndpoint,
-        int weeklyTokenLimit,
-        int semesterExamLimit
-) {
+        String aiModel,
+        String encryptionKey) {
     public static AppConfig fromEnv() {
         return new AppConfig(
                 "true".equalsIgnoreCase(System.getenv("EXAMARCHIVE_DEV_MODE")),
@@ -59,12 +56,9 @@ public record AppConfig(
                 getEnv("EXAMARCHIVE_SMTP_FROM", ""),
                 getEnv("EXAMARCHIVE_DOCKER_SOCK", "/var/run/docker.sock"),
                 getEnv("EXAMARCHIVE_DOCKER_RUNTIME", "runc"),
-                getEnv("EXAMARCHIVE_AZURE_WEBHOOK_SECRET", ""),
-                getEnv("EXAMARCHIVE_AI_APIKEY", ""),
                 getEnv("EXAMARCHIVE_AI_ENDPOINT", ""),
-                getIntEnv("EXAMARCHIVE_WEEKLY_TOKEN_LIMIT", ""),
-                getIntEnv("EXAMARCHIVE_SEMESTER_LIMIT", "")
-        );
+                getEnv("EXAMARCHIVE_AI_MODEL", "Qwen3.8-27B"),
+                getEnv("EXAMARCHIVE_ENCRYPTION_KEY", ""));
     }
 
     private static String getEnv(String name, String defaultValue) {

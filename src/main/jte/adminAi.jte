@@ -2,9 +2,6 @@
 @param int semesterExamCount
 @param int weeklyToken
 @param int weeklyExamCount
-@param double currentAzureCredit
-@param double currentAzureAmount
-@param int weeklyTokenLimit
 <div class="container">
     <article>
         <header>
@@ -17,7 +14,6 @@
                     <hgroup style="margin-bottom: 0;">
                         <h2 style="margin-bottom: 0;">${weeklyToken}</h2>
                         <p>Token/Woche</p>
-                        <meter value="${weeklyToken}" min="0" max="${weeklyTokenLimit}">${weeklyToken}</meter>
                     </hgroup>
                 </article>
                 <article style="text-align: center; padding: 1.5rem;">
@@ -36,12 +32,6 @@
                     <hgroup style="margin-bottom: 0;">
                         <h2 style="margin-bottom: 0;">${semesterExamCount}</h2>
                         <p>Klausuren/Semester</p>
-                    </hgroup>
-                </article>
-                <article style="text-align: center; padding: 1.5rem;">
-                    <hgroup style="margin-bottom: 0;">
-                        <h2 style="margin-bottom: 0;">${String.format(java.util.Locale.GERMANY, "%.2f €", currentAzureAmount)}</h2>
-                        <p>von ${String.format(java.util.Locale.GERMANY, "%.2f €", currentAzureCredit)} Azure Credit</p>
                     </hgroup>
                 </article>
             </div>
