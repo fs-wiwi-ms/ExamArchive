@@ -22,22 +22,22 @@ import java.util.concurrent.TimeUnit;
  * A client for creating requests for ExamAI to an OpenAI compatible API.
  */
 public class OpenAIClient {
-    private final String apiKey;
     private final String apiBaseUrl;
     private final OkHttpClient httpClient;
     private final JsonMapper mapper = JsonMapper.builder().build();
     private final String scanPrompt;
     private final String generatePrompt;
     private final Semaphore semaphore;
+    private final String llmModel;
     private static final Logger logger = LoggerFactory.getLogger(OpenAIClient.class);
 
-    public OpenAIClient(String apiKey, String apiBaseUrl, String scanPrompt, String generatePrompt, int concurrentRequests) {
-        this.apiKey = apiKey;
+    public OpenAIClient(String apiBaseUrl, String scanPrompt, String generatePrompt, int concurrentRequests, String llmModel) {
         this.apiBaseUrl = apiBaseUrl;
         this.httpClient = new OkHttpClient.Builder().callTimeout(Duration.of(6, ChronoUnit.MINUTES)).readTimeout(Duration.of(5, ChronoUnit.MINUTES)).connectTimeout(Duration.of(15, ChronoUnit.SECONDS)).connectionPool(new ConnectionPool(10, 6, TimeUnit.MINUTES)).build();
         this.scanPrompt = scanPrompt;
         this.generatePrompt = generatePrompt;
         this.semaphore = new Semaphore(concurrentRequests);
+        this.llmModel = llmModel;
     }
 
     /**
@@ -46,13 +46,13 @@ public class OpenAIClient {
      * @return The result of the exam generation.
      * @throws Exception If an error occurs during the generation process.
      */
-    public GenerationResult generateExam(List<Exam> exams) throws Exception {
+    public GenerationResult generateExam(List<Exam> exams, String apiKey) throws Exception {
         semaphore.acquire();
         try {
             String prompt = createGenerationPrompt(exams);
             logger.info("Generating exam. Prompt length in chars: {}", prompt.length());
             Request request = new Request.Builder()
-                    .url(apiBaseUrl)
+                    .url(apiBaseUrl + "/v1/chat/completions")
                     .addHeader("Content-Type", "application/json")
                     .addHeader("Accept", "application/json")
                     .addHeader("Authorization", "Bearer " + apiKey)
@@ -122,9 +122,9 @@ public class OpenAIClient {
      */
     private String createGenerationPrompt(List<Exam> exams){
         ObjectNode root = mapper.createObjectNode();
-        root.put("model", "gpt-5.6-terra");
+        root.put("model", llmModel);
         root.put("max_completion_tokens", 12000);
-        root.put("reasoning_effort", "medium");
+        root.put("reasoning_effort", "high");
         ArrayNode messages = root.putArray("messages");
         ObjectNode systemMessage = messages.addObject();
         systemMessage.put("role", "system");
@@ -148,10 +148,10 @@ public class OpenAIClient {
      *
      * @param examPictures Exam pages to scan as image
      */
-    public String scanExamWithAI(List<byte[]> examPictures) throws Exception{
+    public String scanExamWithAI(List<byte[]> examPictures, String apiKey) throws Exception{
         String payload = createScanPayload(examPictures);
         Request request = new Request.Builder()
-                .url(apiBaseUrl)
+                .url(apiBaseUrl + "/v1/chat/completions")
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Accept", "application/json")
                 .addHeader("Authorization", "Bearer " + apiKey)
@@ -190,7 +190,7 @@ public class OpenAIClient {
 
     private String createScanPayload(List<byte[]> pages){
         ObjectNode root = mapper.createObjectNode();
-        root.put("model", "gpt-5-mini");
+        root.put("model", llmModel);
         root.put("max_completion_tokens", 20000);
         root.put("reasoning_effort", "low");
         ArrayNode messages = root.putArray("messages");
@@ -215,6 +215,33 @@ public class OpenAIClient {
         messages.add(userMessage);
         return mapper.writeValueAsString(root);
     }
+
+    public boolean testAPIKey(String apiKey) {
+        Request request = new Request.Builder()
+                .url(apiBaseUrl + "/key/info")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Authorization", "Bearer " + apiKey)
+                .build();
+        try (Response response = httpClient.newCall(request).execute()){
+            if(!response.isSuccessful()){
+                return false;
+            }
+            String json = response.body().string();
+            if(json.isEmpty()){
+                return false;
+            }
+            JsonNode root = mapper.readTree(json);
+            JsonNode infoNode = root.get("info");
+            if(infoNode == null){
+                return false;
+            }
+            JsonNode status = infoNode.get("status");
+            return status != null && status.asString().equals("active");
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
 
     public record GenerationResult(boolean success, String latex, int inputToken, int outputToken, String error) {
         public static GenerationResult fail(String error) {

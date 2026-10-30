@@ -4,7 +4,6 @@ import ms.wiwi.examarchive.admin.AdminExamListDTO;
 import ms.wiwi.examarchive.admin.ModuleDegreeDTO;
 import ms.wiwi.examarchive.model.*;
 import ms.wiwi.examarchive.model.Module;
-import ms.wiwi.examarchive.services.AzureService;
 import ms.wiwi.examarchive.services.DatabaseService;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -1302,37 +1301,19 @@ public class Repository {
         return 0;
     }
 
-    public AzureService.AzureCreditDTO getAzureCredits(){
+    public String getApiKeyForUser(User user) {
         String sql = """
-                SELECT current_amount, current_credit, last_update
-                FROM azure_credits
-                LIMIT 1
+                SELECT uni_api_key FROM users WHERE userid = ?;
                 """;
-        try(Connection connection = dbManager.getConnection();
+        try (Connection connection = dbManager.getConnection();
             PreparedStatement statement = connection.prepareStatement(sql);
             ResultSet resultSet = statement.executeQuery()) {
             if (resultSet.next()) {
-                return new AzureService.AzureCreditDTO(resultSet.getDouble("current_credit"), resultSet.getDouble("current_amount"), resultSet.getTimestamp("last_update").toInstant());
+                return resultSet.getString(1);
             }
         } catch (SQLException e) {
-            logger.error("Could not get Azure credits", e);
+            logger.error("Could not get api key for user {}", user, e);
         }
         return null;
-    }
-
-    public void updateLastKnownAzureCredits(double currentAmount, double currentCredit){
-        String sql = """
-                UPDATE azure_credits
-                SET current_amount = ?, current_credit = ?, last_update = NOW()
-                WHERE id = 1
-                """;
-        try(Connection connection = dbManager.getConnection();
-            PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setDouble(1, currentAmount);
-            statement.setDouble(2, currentCredit);
-            statement.executeUpdate();
-        } catch (SQLException e) {
-            logger.error("Could not update Azure credits", e);
-        }
     }
 }

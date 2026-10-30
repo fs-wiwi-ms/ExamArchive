@@ -45,11 +45,10 @@ public class ExamArchive {
     private final MotdService motdService;
     private final EmailService emailService;
     private final AIService aiService;
+    private final OpenAIClient openAiClient;
     private final QuartoSandboxService quartoSandboxService;
-    private final AzureService azureService;
+    private final ApiKeyEncryptionService apiKeyEncryptionService;
     private final PdfService pdfService = new PdfService();
-    private final int semesterExamLimit;
-    private final int weeklyTokenLimit;
     private final AppConfig appConfig;
     private final Logger logger = LoggerFactory.getLogger(ExamArchive.class);
 
@@ -79,22 +78,17 @@ public class ExamArchive {
 
         logger.info("Initializing Quarto sandbox service");
         quartoSandboxService = createQuartoSandboxService();
-
         logger.info("Quarto sandbox service initialized");
-        logger.info("Initializing Azure service");
-        azureService = new AzureService(
-                appConfig.azureWebhookSecret(),
-                repository
-        );
-        logger.info("Azure service initialized");
+
+        logger.info("Loading API key encryption service");
+        apiKeyEncryptionService = new ApiKeyEncryptionService(appConfig.encryptionKey());
         logger.info("Initializing AI service");
+        openAiClient = createOpenAiClient();
         aiService = createAiService();
-        weeklyTokenLimit = appConfig.weeklyTokenLimit();
-        semesterExamLimit = appConfig.semesterExamLimit();
         logger.info("AI service initialized. Ready to start!");
     }
 
-    private AIService createAiService() {
+    private OpenAIClient createOpenAiClient() {
         String scanPrompt;
         String genPrompt;
         try (InputStream scanPromptStream = AIService.class.getResourceAsStream("/prompts/scan.md");
@@ -105,20 +99,23 @@ public class ExamArchive {
             logger.error("Failed to load AI prompts", e);
             throw new RuntimeException(e);
         }
-        OpenAIClient openAIClient = new OpenAIClient(
-                appConfig.aiApiKey(),
+        return new OpenAIClient(
                 appConfig.aiEndpoint(),
                 scanPrompt,
                 genPrompt,
-                4
+                10,
+                appConfig.aiModel()
         );
+    }
+
+    private AIService createAiService() {
         return new AIService(
                 repository,
                 s3Service,
                 quartoSandboxService,
                 pdfService,
-                openAIClient,
-                azureService
+                openAiClient,
+                apiKeyEncryptionService
         );
     }
 
@@ -213,7 +210,6 @@ public class ExamArchive {
      */
     private void start() {
         dbManager.migrateDatabase();
-        azureService.loadFromDatabase();
         logger.info("Starting webserver");
         Javalin javalin = Javalin.create(this::configureJavalin);
         scheduleUserDeletion();
@@ -261,7 +257,6 @@ public class ExamArchive {
         config.staticFiles.add("/public");
         config.staticFiles.enableWebjars();
         config.concurrency.useVirtualThreads = true;
-        config.routes.post("/api/azure_webhook", azureService::handleWebhook);
         AuthController authController = new AuthController(oidcService, repository, appConfig.keycloakUserAffiliation(), appConfig.keycloakAdminAffiliation(), appConfig.adminEmail());
         config.routes.get("/login/{type}", authController::login);
         config.routes.get("/auth/callback", authController::callback);
@@ -272,7 +267,7 @@ public class ExamArchive {
         ShowModuleController showModuleHandler = new ShowModuleController(repository);
         config.routes.get("/exams/module/{moduleid}", showModuleHandler::handleGet);
         config.routes.post("/exams/module/{moduleid}/filter", showModuleHandler::handleFilter);
-        ExamAIController examAIController = new ExamAIController(repository, aiService, semesterExamLimit, weeklyTokenLimit);
+        ExamAIController examAIController = new ExamAIController(repository, aiService, openAiClient, apiKeyEncryptionService);
         config.routes.get("/exams/module/{moduleid}/examai", examAIController::handleGet);
         config.routes.post("/exams/module/{moduleid}/examai", examAIController::handlePost);
         config.routes.sse("/exams/ai/job/{jobid}", examAIController::handleSse);
@@ -307,7 +302,7 @@ public class ExamArchive {
         AdminSettingsController adminSettingsController = new AdminSettingsController(motdService, repository);
         config.routes.get("/admin/settings", adminSettingsController::handleGet);
         config.routes.post("/admin/updatemotd", adminSettingsController::handleUpdateMotdPost);
-        config.routes.get("/admin/ai", new AdminAIController(repository, azureService, weeklyTokenLimit));
+        config.routes.get("/admin/ai", new AdminAIController(repository));
         config.routes.get("/dropdown", new HeaderController());
         config.routes.get("/exams/usercontent/download/{userexamid}", new UserExamDownloadController(repository, s3Service));
         config.routes.get("/exams/usercontent/list", new UserExamListController(repository));

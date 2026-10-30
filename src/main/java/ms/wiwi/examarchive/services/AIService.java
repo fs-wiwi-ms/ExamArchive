@@ -28,17 +28,17 @@ public class AIService {
     private final Repository repository;
     private final S3Service s3Service;
     private final QuartoSandboxService quartoSandboxService;
-    private final AzureService azureService;
     private final OpenAIClient openAIClient;
     private final PdfService pdfService;
+    private final ApiKeyEncryptionService apiKeyEncryptionService;
 
-    public AIService(Repository repository, S3Service s3Service, QuartoSandboxService quartoSandboxService, PdfService pdfService, OpenAIClient openAIClient, AzureService azureService) {
+    public AIService(Repository repository, S3Service s3Service, QuartoSandboxService quartoSandboxService, PdfService pdfService, OpenAIClient openAIClient, ApiKeyEncryptionService apiKeyEncryptionService) {
         this.repository = repository;
         this.s3Service = s3Service;
-        this.azureService = azureService;
         this.pdfService = pdfService;
         this.quartoSandboxService = quartoSandboxService;
         this.openAIClient = openAIClient;
+        this.apiKeyEncryptionService = apiKeyEncryptionService;
     }
 
     /**
@@ -69,8 +69,10 @@ public class AIService {
         executor.submit(() -> {
             try {
                 onUpdate.accept(job);
-                if(azureService.getCurrentAmount() <= 150){
-                    updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, "There seems to be a problem with Azure. Please contact the administrator");
+                String apiKey = repository.getApiKeyForUser(user);
+                apiKey = apiKeyEncryptionService.decrypt(apiKey);
+                if(!openAIClient.testAPIKey(apiKey)){
+                    updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, "Invalid API key");
                     return;
                 }
                 List<Exam> exams = repository.queryExamsFilterByDateAndProf(moduleid, untilYear, professors);
@@ -81,7 +83,7 @@ public class AIService {
                 List<Exam> examsWithoutScan = exams.stream().filter(exam -> exam.scan() == null).toList();
                 if (!examsWithoutScan.isEmpty()) {
                     updateJobStatusAndNotify(job, ExamAIStatus.SCAN, onUpdate);
-                    boolean success = scanExams(examsWithoutScan);
+                    boolean success = scanExams(examsWithoutScan, apiKey);
                     if (!success) {
                         updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, "Could not scan exams");
                         return;
@@ -89,7 +91,7 @@ public class AIService {
                     exams = repository.queryExamsFilterByDateAndProf(moduleid, untilYear, professors);
                 }
                 updateJobStatusAndNotify(job, ExamAIStatus.GENERATING, onUpdate);
-                OpenAIClient.GenerationResult result = openAIClient.generateExam(exams);
+                OpenAIClient.GenerationResult result = openAIClient.generateExam(exams, apiKey);
                 if (!result.success()) {
                     updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, result.error());
                     return;
@@ -145,7 +147,7 @@ public class AIService {
         }
     }
 
-    private boolean scanExams(List<Exam> examsWithoutScan) {
+    private boolean scanExams(List<Exam> examsWithoutScan, String apiKey) {
         AtomicBoolean success = new AtomicBoolean(true);
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             for (Exam item : examsWithoutScan) {
@@ -154,7 +156,7 @@ public class AIService {
                         logger.info("Scanning Exam " + item.examID() + " (" + item.name() + ")");
                         byte[] examPDF = s3Service.downloadFile(item.fileID(), S3Service.Bucket.EXAMS);
                         List<byte[]> images = pdfService.convertPdfToImages(examPDF, 150, 50);
-                        String scan = openAIClient.scanExamWithAI(images);
+                        String scan = openAIClient.scanExamWithAI(images, apiKey);
                         Exam newExam = new Exam(item.name(),
                                 item.examID(),
                                 item.moduleID(),
