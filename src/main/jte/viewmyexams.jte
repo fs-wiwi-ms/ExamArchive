@@ -11,6 +11,7 @@
 @import java.time.format.DateTimeFormatter
 @param User user
 @param List<UserExam> userexams
+@param boolean hasapikey
 <!Doctype html>
 <html lang="de" data-theme="light">
 <head>
@@ -148,7 +149,46 @@
                     <strong>${JteLocalizer.get("userexams.disclaimer.title")}:</strong> ${JteLocalizer.get("userexams.disclaimer.text")}
                 </small>
             </article>
+            @if(hasapikey)
+                <article style="border-left: 4px solid var(--pico-primary); padding: 1rem 1.25rem; margin-top: 1rem; margin-bottom: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem;">
+                    <p style="margin-bottom: 0;">${JteLocalizer.get("userexams.apikey.set")}</p>
+                    <button id="remove-apikey-btn" type="button" class="secondary" style="margin-bottom: 0;">
+                        ${JteLocalizer.get("userexams.apikey.remove")}
+                    </button>
+                </article>
+            @else
+                <article style="border-left: 4px solid var(--pico-muted-border); padding: 1rem 1.25rem; margin-top: 1rem; margin-bottom: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem;">
+                    <p style="margin-bottom: 0;">${JteLocalizer.get("userexams.apikey.missing")}</p>
+                    <a href="/exams/apikey" role="button" class="outline" style="margin-bottom: 0;">
+                        ${JteLocalizer.get("userexams.apikey.setkey")}
+                    </a>
+                </article>
+            @endif
         </header>
+        @if(hasapikey)
+            <dialog id="remove-apikey-dialog">
+                <article>
+                    <header>${JteLocalizer.get("userexams.apikey.remove")}</header>
+                    <p style="margin-top: 0; margin-bottom: 0;">${JteLocalizer.get("userexams.apikey.remove.confirm")}</p>
+                    <footer>
+                        <button type="button" class="secondary"
+                                onclick="this.closest('dialog').close()">
+                            ${JteLocalizer.get("error.back")}
+                        </button>
+                        <button type="button" class="secondary"
+                                onclick="this.closest('dialog').close()"
+                                hx-post="/exams/apikey/delete">
+                            ${JteLocalizer.get("userexams.apikey.remove")}
+                        </button>
+                    </footer>
+                </article>
+            </dialog>
+            <script>
+                document.getElementById("remove-apikey-btn").addEventListener("click", () => {
+                    document.getElementById("remove-apikey-dialog").showModal();
+                });
+            </script>
+        @endif
         @if(groupedExams.isEmpty())
             <article style="text-align: center; padding: 3rem 1.5rem;">
                 <h3>${JteLocalizer.get("userexams.empty.title")}</h3>

@@ -271,6 +271,9 @@ public class ExamArchive {
         config.routes.get("/exams/module/{moduleid}/examai", examAIController::handleGet);
         config.routes.post("/exams/module/{moduleid}/examai", examAIController::handlePost);
         config.routes.sse("/exams/ai/job/{jobid}", examAIController::handleSse);
+        config.routes.get("/exams/apikey", examAIController::handleGetApiKey);
+        config.routes.post("/exams/apikey", examAIController::handlePostApiKey);
+        config.routes.post("/exams/apikey/delete", examAIController::handleDeleteApiKey);
         AddExamController addExamController = new AddExamController(repository, s3Service, emailService, pdfService);
         config.routes.get("/exams/upload", addExamController::handleGet);
         config.routes.post("/exams/upload", addExamController::handlePost);
@@ -305,7 +308,7 @@ public class ExamArchive {
         config.routes.get("/admin/ai", new AdminAIController(repository));
         config.routes.get("/dropdown", new HeaderController());
         config.routes.get("/exams/usercontent/download/{userexamid}", new UserExamDownloadController(repository, s3Service));
-        config.routes.get("/exams/usercontent/list", new UserExamListController(repository));
+        config.routes.get("/exams/usercontent/list", new UserExamListController(repository, apiKeyEncryptionService));
         config.routes.before("/exams/*", ctx -> {
             if (ctx.sessionAttribute("user") == null) {
                 ctx.skipRemainingHandlers();

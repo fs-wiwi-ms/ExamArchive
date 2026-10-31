@@ -13,6 +13,7 @@ import ms.wiwi.examarchive.model.Professor;
 import ms.wiwi.examarchive.model.User;
 import ms.wiwi.examarchive.services.AIService;
 import ms.wiwi.examarchive.services.ApiKeyEncryptionService;
+import ms.wiwi.examarchive.services.JteLocalizer;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -46,23 +47,50 @@ public class ExamAIController {
         try {
             apiKey = apiKeyEncryptionService.decrypt(apiKey);
             if(apiKey.isBlank()) {
-                context.render("enterApiKey.jte", Map.of("moduleid", moduleID));;
+                context.render("enterApiKey.jte", Map.of("moduleid", moduleID));
                 return;
             }
             if(!openAIClient.testAPIKey(apiKey)) {
-                context.render("enterApiKey.jte", Map.of("moduleid", moduleID));;
+                context.render("enterApiKey.jte", Map.of("moduleid", moduleID));
                 return;
             }
         } catch (Exception e) {
-            context.render("enterApiKey.jte", Map.of("moduleid", moduleID));;
+            context.render("enterApiKey.jte", Map.of("moduleid", moduleID));
             return;
         }
         context.render("generateExam.jte", Map.of("professors", repository.searchProfessorsForModule(moduleID, null, null),
                 "moduleid",moduleID));
     }
 
-    public void handlePostApiKey(Context context) {
-        //TODO create jte template for post api key and implement handling here
+    public void handleGetApiKey(@NotNull Context context) {
+        context.render("enterApiKey.jte", Map.of("moduleid", ""));
+    }
+
+    public void handlePostApiKey(@NotNull Context context) throws Exception {
+        User user = context.sessionAttribute("user");
+        String apiKey = context.formParam("apikey");
+        String moduleid = context.formParam("moduleid");
+        if (apiKey == null || apiKey.isBlank()) {
+            context.render("enterApiKey.jte", Map.of("moduleid", moduleid == null ? "" : moduleid,
+                    "error", JteLocalizer.lookup("apikey.error.required")));
+            return;
+        }
+        if (!openAIClient.testAPIKey(apiKey.trim())) {
+            context.render("enterApiKey.jte", Map.of("moduleid", moduleid == null ? "" : moduleid,
+                    "error", JteLocalizer.lookup("apikey.error.invalid")));
+            return;
+        }
+        repository.setApiKeyForUser(user, apiKeyEncryptionService.encrypt(apiKey.trim()));
+        if (moduleid == null || moduleid.isBlank()) {
+            context.redirect("/exams/usercontent/list");
+        } else {
+            context.redirect("/exams/module/" + moduleid + "/examai");
+        }
+    }
+
+    public void handleDeleteApiKey(@NotNull Context context) {
+        repository.deleteApiKeyForUser(context.sessionAttribute("user"));
+        context.redirect("/exams/usercontent/list");
     }
 
     public void handlePost(@NotNull Context context) {
