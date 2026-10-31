@@ -2,7 +2,7 @@
 <!Doctype html>
 <html lang="de" data-theme="light">
 <head>
-    <script src="/assets/htmx.js"></script>
+    <script src="/webjars/htmx.org/2.0.7/dist/htmx.min.js"></script>
     <link rel="stylesheet" href="/assets/pico.min.css">
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
@@ -33,6 +33,7 @@
         <button hx-get="/admin/exams" hx-target="#tab-content">Klausuren</button>
         <button hx-get="/admin/users" hx-target="#tab-content">Accounts</button>
         <button hx-get="/admin/settings" hx-target="#tab-content">Sonstiges</button>
+        <button hx-get="/admin/ai" hx-target="#tab-content">ExamAI</button>
     </div>
     <hr>
     <div id="tab-content" >

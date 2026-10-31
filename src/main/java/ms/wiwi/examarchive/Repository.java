@@ -29,7 +29,7 @@ public class Repository {
 
     public @Nullable Exam getExam(String id){
         try(Connection connection = dbManager.getConnection();
-            PreparedStatement statement = connection.prepareStatement("SELECT examid, name, moduleid, year, semester, uploaddate, fileid, uploaderid, status, professorid FROM exams WHERE exams.examid = ?")) {
+            PreparedStatement statement = connection.prepareStatement("SELECT examid, name, moduleid, year, semester, uploaddate, fileid, uploaderid, status, professorid, scan FROM exams WHERE exams.examid = ?")) {
             statement.setString(1, id);
             ResultSet resultSet = statement.executeQuery();
             if(!resultSet.next()){
@@ -44,8 +44,9 @@ public class Repository {
             String uploaderId = resultSet.getString("uploaderid");
             ExamStatus status = ExamStatus.valueOf(resultSet.getString("status"));
             String professorId = resultSet.getString("professorid");
+            String scan = resultSet.getString("scan");
             Instant uploaddate = resultSet.getTimestamp("uploaddate").toInstant();
-            return new Exam(name, examId, moduleId, year, semester, uploaddate, fileId, uploaderId, status, professorId);
+            return new Exam(name, examId, moduleId, year, semester, uploaddate, fileId, uploaderId, status, professorId, scan);
         } catch (SQLException e) {
             logger.error("Could not get exam from database", e);
             return null;
@@ -77,7 +78,7 @@ public class Repository {
      */
     public void addExam(Exam exam){
         try (Connection connection = dbManager.getConnection();
-             PreparedStatement statement = connection.prepareStatement("INSERT INTO exams (examid, name, moduleid, semester, year, uploaddate, fileid, uploaderid, status, professorid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")){
+             PreparedStatement statement = connection.prepareStatement("INSERT INTO exams (examid, name, moduleid, semester, year, uploaddate, fileid, uploaderid, status, professorid, scan) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")){
             statement.setString(1, exam.examID());
             statement.setString(2, exam.name());
             statement.setString(3, exam.moduleID());
@@ -88,6 +89,7 @@ public class Repository {
             statement.setString(8, exam.uploaderID());
             statement.setString(9, exam.status().name());
             statement.setString(10, exam.professorID());
+            statement.setString(11, exam.scan());
             statement.executeUpdate();
             refreshModuleSearchView();
         } catch (SQLException e) {
@@ -170,7 +172,7 @@ public class Repository {
         try (Connection connection = dbManager.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
                      UPDATE exams
-                     SET name = ?, moduleid = ?, year = ?, semester = ?, uploaddate = ?, fileid = ?, uploaderid = ?, status = ?, professorid = ?
+                     SET name = ?, moduleid = ?, year = ?, semester = ?, uploaddate = ?, fileid = ?, uploaderid = ?, status = ?, professorid = ?, scan = ?
                      WHERE examid = ?
                      """)) {
             statement.setString(1, newExam.name());
@@ -182,7 +184,8 @@ public class Repository {
             statement.setString(7, newExam.uploaderID());
             statement.setString(8, newExam.status().name());
             statement.setString(9, newExam.professorID());
-            statement.setString(10, newExam.examID());
+            statement.setString(10, newExam.scan());
+            statement.setString(11, newExam.examID());
             statement.executeUpdate();
             refreshModuleSearchView();
         } catch (Exception e) {
@@ -224,7 +227,7 @@ public class Repository {
 
         String query = """
             SELECT
-                e.examID, e.name AS exam_name, e.semester, e.year, e.uploadDate, e.fileID, e.status,
+                e.examID, e.name AS exam_name, e.semester, e.year, e.uploadDate, e.fileID, e.status, e.scan,
                 m.moduleID, m.name AS module_name,
                 p.professorID, p.firstname AS prof_firstname, p.lastname AS prof_lastname,
                 u.userID, u.firstname AS user_firstname, u.lastname AS user_lastname, u.lastLogin AS user_lastLogin, u.createdAt AS user_createdAt, u.email AS user_email, u.role AS user_role
@@ -251,6 +254,7 @@ public class Repository {
                 String professorFirstName = resultSet.getString("prof_firstname");
                 String professorLastName = resultSet.getString("prof_lastname");
                 String uploaderId = resultSet.getString("userID");
+                String scan = resultSet.getString("scan");
                 User uploader = null;
                 if (uploaderId != null) {
                     String uploaderFirstName = resultSet.getString("user_firstname");
@@ -263,7 +267,7 @@ public class Repository {
                 }
                 Module module = new Module(moduleName, moduleId);
                 Professor professor = new Professor(professorId, professorFirstName, professorLastName);
-                Exam exam = new Exam(name, examId, moduleId, year, semester, uploadDate, fileId, uploaderId, ExamStatus.valueOf(status), professorId);
+                Exam exam = new Exam(name, examId, moduleId, year, semester, uploadDate, fileId, uploaderId, ExamStatus.valueOf(status), professorId, scan);
                 allExams.add(new AdminExamListDTO(module, exam, professor, uploader));
             }
             return allExams;
@@ -471,7 +475,7 @@ public class Repository {
         try (Connection connection = dbManager.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
                      SELECT e.examid, e.name, e.uploaddate, e.uploaderid, e.year,
-                            e.semester, e.fileid, e.status, e.professorid,
+                            e.semester, e.fileid, e.status, e.professorid, e.scan,
                             p.firstname, p.lastname
                      FROM exams e
                      LEFT JOIN professors p ON e.professorid = p.professorid
@@ -493,9 +497,10 @@ public class Repository {
                 String fileid = resultSet.getString("fileid");
                 ExamStatus status = ExamStatus.valueOf(resultSet.getString("status"));
                 String professorid = resultSet.getString("professorid");
+                String scan = resultSet.getString("scan");
                 String firstname = resultSet.getString("firstname");
                 String lastname = resultSet.getString("lastname");
-                Exam exam = new Exam(name, examid, moduleID, year, semester, uploadDate, fileid, uploaderid, status, professorid);
+                Exam exam = new Exam(name, examid, moduleID, year, semester, uploadDate, fileid, uploaderid, status, professorid, scan);
                 Professor professor = new Professor(professorid, firstname, lastname);
                 exams.add(new ProfessorExamDTO(exam, professor));
             }
@@ -661,7 +666,6 @@ public class Repository {
                 String module = resultSet.getString("module");
                 keywords.add(new KeyWord(keyword, module));
             }
-            refreshModuleSearchView();
             return keywords;
         } catch (SQLException e) {
             logger.error("Could not get keywords from database", e);
@@ -865,7 +869,7 @@ public class Repository {
         List<ProfessorExamDTO> topExams = new ArrayList<>();
         String query = """
             SELECT e.examid, e.name, e.moduleid, e.semester, e.year, e.uploaddate,
-                   e.fileid, e.uploaderid, e.status, e.professorid,
+                   e.fileid, e.uploaderid, e.status, e.professorid, e.scan,
                    p.firstname, p.lastname
             FROM (
                 SELECT examid, COUNT(examid) as dl_count
@@ -895,7 +899,8 @@ public class Repository {
                             rs.getString("fileid"),
                             rs.getString("uploaderid"),
                             ExamStatus.valueOf(rs.getString("status")),
-                            rs.getString("professorid")
+                            rs.getString("professorid"),
+                            rs.getString("scan")
                     );
 
                     Professor professor = null;
@@ -980,15 +985,51 @@ public class Repository {
 
 
     /**
-     * Deletes old accounts, older than three years
+     * Gets old accounts, older than three years
      */
-    public void deleteOldAccounts() {
+    public List<User> getAccountsToDelete() {
         try(Connection connection = dbManager.getConnection();
-        PreparedStatement statement = connection.prepareStatement("DELETE FROM users WHERE lastlogin < NOW() - INTERVAL '3 years'")) {
+        PreparedStatement statement = connection.prepareStatement("SELECT userid, firstname, lastname, lastlogin, createdat, email, role  FROM users WHERE lastlogin < NOW() - INTERVAL '2 years'")) {
+            ResultSet resultSet = statement.executeQuery();
+            List<User> usersToDelete = new ArrayList<>();
+            while (resultSet.next()) {
+                String userid = resultSet.getString("userid");
+                String firstname = resultSet.getString("firstname");
+                String lastname = resultSet.getString("lastname");
+                Timestamp lastlogin = resultSet.getTimestamp("lastlogin");
+                Timestamp createdat = resultSet.getTimestamp("createdat");
+                String email = resultSet.getString("email");
+                String role = resultSet.getString("role");
+                usersToDelete.add(new User(userid, firstname, lastname, lastlogin.toInstant(), createdat.toInstant(), email, Role.valueOf(role)));
+            }
+            return usersToDelete;
+        } catch (SQLException e) {
+            logger.error("Could get old accounts", e);
+        }
+        return List.of();
+    }
+
+    public void deleteOldAccounts(List<String> userid){
+        try(Connection connection = dbManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement("DELETE FROM users WHERE userid = ANY(?)")) {
+            statement.setArray(1, connection.createArrayOf("text", userid.toArray(new String[0])));
             int result = statement.executeUpdate();
             logger.info("Deleted {} old accounts", result);
         } catch (SQLException e) {
             logger.error("Could not delete old accounts", e);
+        }
+    }
+
+    public void deleteUserExam(String id){
+        if(id == null || id.isBlank())
+            return;
+        try(Connection connection = dbManager.getConnection();
+        PreparedStatement statement = connection.prepareStatement("DELETE FROM user_exams WHERE id = ?")) {
+            statement.setString(1, id);
+            int result = statement.executeUpdate();
+            logger.info("Deleted {} exam", result);
+        } catch (SQLException e) {
+            logger.error("Could not delete exam", e);
         }
     }
 
@@ -1008,6 +1049,244 @@ public class Repository {
         } catch (SQLException e) {
             logger.error("Could not get admin emails", e);
             return List.of();
+        }
+    }
+
+    public List<Exam> queryExamsFilterByDateAndProf(String moduleId, Integer year, List<Professor> professors) {
+        StringBuilder sql = new StringBuilder("""
+        SELECT
+            examID, name AS exam_name, semester, moduleid, year, uploadDate, fileID, status, uploaderid, scan, professorID
+        FROM exams
+        WHERE moduleid = ? AND status = ?
+        """);
+
+        boolean hasProfessors = professors != null && !professors.isEmpty();
+        boolean hasYear = year != null && year > 0;
+
+        if (hasProfessors) {
+            sql.append(" AND professorID = ANY(?)");
+        }
+        if (hasYear) {
+            sql.append(" AND year >= ?");
+        }
+
+        sql.append(" ORDER BY year DESC LIMIT 3");
+
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql.toString())) {
+
+            int paramIndex = 1;
+            statement.setString(paramIndex++, moduleId);
+            statement.setString(paramIndex++, ExamStatus.ACCEPTED.name());
+
+            Array profArray = null;
+            if (hasProfessors) {
+                String[] profIds = professors.stream()
+                        .map(Professor::professorID)
+                        .toArray(String[]::new);
+                profArray = connection.createArrayOf("varchar", profIds);
+                statement.setArray(paramIndex++, profArray);
+            }
+            if (hasYear) {
+                statement.setInt(paramIndex++, year);
+            }
+
+            try (ResultSet set = statement.executeQuery()) {
+                List<Exam> exams = new ArrayList<>();
+                while (set.next()) {
+                    exams.add(new Exam(
+                            set.getString("exam_name"),
+                            set.getString("examID"),
+                            set.getString("moduleid"),
+                            set.getInt("year"),
+                            Semester.valueOf(set.getString("semester")),
+                            set.getTimestamp("uploadDate").toInstant(),
+                            set.getString("fileID"),
+                            set.getString("uploaderid"),
+                            ExamStatus.valueOf(set.getString("status")),
+                            set.getString("professorID"),
+                            set.getString("scan")
+                    ));
+                }
+                return exams;
+            } finally {
+                if (profArray != null) {
+                    profArray.free();
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Could not query exams for module {}", moduleId, e);
+            return List.of();
+        }
+    }
+
+    /**
+     * Adds an entry to the user_exams table
+     * @param id user exam id
+     * @param user user id
+     * @param inputToken tokens it took as input
+     * @param outputToken tokens it took as output
+     */
+    public void addUserExam(String id, User user, int inputToken, int outputToken, String fileid) {
+        try(Connection connection = dbManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement("""
+            INSERT INTO user_exams(id, user_id, creation_date, file_id, input_tokens, output_tokens) VALUES (?, ?, ?, ?, ?, ?);
+            """)){
+            statement.setString(1, id);
+            statement.setString(2, user.id());
+            statement.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
+            statement.setString(4, fileid);
+            statement.setInt(5, inputToken);
+            statement.setInt(6, outputToken);
+            statement.execute();
+        } catch (SQLException e) {
+            logger.error("Could not add user exam", e);
+        }
+    }
+
+    /**
+     * Checks if the user is the owner of the user exam
+     * @param user user to check ownership for
+     * @param userexamid fileid
+     * @return true if owner
+     */
+    public boolean isUserExamOwner(User user, String userexamid) {
+        if (user == null || user.id() == null || userexamid == null) {
+            return false;
+        }
+        String sql = "SELECT 1 FROM user_exams WHERE user_id = ? AND id = ?";
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, user.id());
+            statement.setString(2, userexamid);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next();
+            }
+        } catch (SQLException e) {
+            logger.error("Could not verify user exam ownership for user {} and file {}", user.id(), userexamid, e);
+            return false;
+        }
+    }
+
+    /**
+     * Retrieves all exams generated by a specific user, ordered from newest to oldest.
+     *
+     * @param user The user whose exams to fetch
+     * @return List of UserExam records, or an empty list if none exist or an error occurs
+     */
+    public List<UserExam> getAllUserExams(User user) {
+        if (user == null || user.id() == null) {
+            return List.of();
+        }
+        String sql = """
+            SELECT id, user_id, creation_date, file_id
+            FROM user_exams
+            WHERE user_id = ?
+            ORDER BY creation_date DESC
+            """;
+        List<UserExam> userExams = new ArrayList<>();
+        try (Connection connection = dbManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setString(1, user.id());
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    String id = resultSet.getString("id");
+                    String userId = resultSet.getString("user_id");
+                    Timestamp creationDate = resultSet.getTimestamp("creation_date");
+                    String fileId = resultSet.getString("file_id");
+                    userExams.add(new UserExam(id, creationDate, userId, fileId));
+                }
+            }
+            return userExams;
+        } catch (SQLException e) {
+            logger.error("Could not get user exams for user {}", user.id(), e);
+            return List.of();
+        }
+    }
+
+    public int countWeeklyUserExmas(){
+        return countUserExamsSince("7 day");
+    }
+
+    public int countSemesterUserExams(){
+        return countUserExamsSince("6 month");
+    }
+
+    private int countUserExamsSince(String pgInterval) {
+        String query = "SELECT COUNT(id) FROM user_exams WHERE creation_date >= NOW() - INTERVAL '" + pgInterval + "'";
+        try(Connection connection = dbManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement(query);
+            ResultSet resultSet = statement.executeQuery()) {
+            if (resultSet.next()) {
+                return resultSet.getInt(1);
+            }
+        } catch (SQLException e) {
+            logger.error("Could not count user exams since {}", pgInterval, e);
+        }
+        return 0;
+    }
+
+    public int countWeeklyUserExmasToken(){
+        return countUserExamsTokenSince("7 day");
+    }
+
+    public int countSemesterUserExamsToken(){
+        return countUserExamsTokenSince("6 month");
+    }
+
+    private int countUserExamsTokenSince(String pgInterval) {
+        String query = "SELECT (SUM(input_tokens) + SUM(output_tokens)) FROM user_exams WHERE creation_date >= NOW() - INTERVAL '" + pgInterval + "'";
+        try(Connection connection = dbManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement(query);
+            ResultSet resultSet = statement.executeQuery()) {
+            if (resultSet.next()) {
+                return resultSet.getInt(1);
+            }
+        } catch (SQLException e) {
+            logger.error("Could not count user exams since {}", pgInterval, e);
+        }
+        return 0;
+    }
+
+    public String getApiKeyForUser(User user) {
+        String sql = """
+                SELECT uni_api_key FROM users WHERE userid = ?;
+                """;
+        try (Connection connection = dbManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, user.id());
+            ResultSet resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return resultSet.getString(1);
+            }
+        } catch (SQLException e) {
+            logger.error("Could not get api key for user {}", user, e);
+        }
+        return null;
+    }
+
+    public void setApiKeyForUser(User user, String apiKey){
+        String sql = "UPDATE users SET uni_api_key = ? WHERE userid = ?";
+        try (Connection connection = dbManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, apiKey);
+            statement.setString(2, user.id());
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Could not set api key for user {}", user, e);
+        }
+    }
+
+    public void deleteApiKeyForUser(User user){
+        String sql = "UPDATE users SET uni_api_key = NULL WHERE userid = ?";
+        try (Connection connection = dbManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, user.id());
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Could not delete api key for user {}", user, e);
         }
     }
 }

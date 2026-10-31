@@ -9,7 +9,7 @@
 <!Doctype html>
 <html lang="de" data-theme="light">
 <head>
-    <script src="/assets/htmx.js"></script>
+    <script src="/webjars/htmx.org/2.0.7/dist/htmx.min.js"></script>
     <link rel="stylesheet" href="/assets/pico.min.css">
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
@@ -48,13 +48,35 @@
             margin-bottom: 0;
         }
         .full-width-mobile {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
             width: 100%;
+        }
+        .full-width-mobile > form,
+        .full-width-mobile > a,
+        .full-width-mobile > button {
+            width: 100%;
+            margin-bottom: 0;
+        }
+        .full-width-mobile > a:not([role="button"]),
+        .full-width-mobile > a:not([role="button"]):hover {
+            text-decoration: none;
+            color: inherit;
         }
         @media (min-width: 768px) {
             .full-width-mobile {
+                flex-direction: row;
+                align-items: center;
+                width: auto;
+            }
+            .full-width-mobile > form,
+            .full-width-mobile > a,
+            .full-width-mobile > button {
                 width: auto;
             }
         }
+
         .filter-dropdown {
             margin-bottom: 0;
         }
@@ -92,6 +114,9 @@
         </div>
 
         <div class="full-width-mobile">
+            <a href="/exams/module/${module.moduleID()}/examai" role="button" class="outline">
+                ${JteLocalizer.get("module.generate")}
+            </a>
             <form hx-post="/exams/module/${module.moduleID()}/filter"
                   hx-target="#results"
                   hx-trigger="change">

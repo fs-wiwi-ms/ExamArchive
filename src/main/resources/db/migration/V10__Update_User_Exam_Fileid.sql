@@ -1,0 +1,1 @@
+ALTER TABLE user_exams ALTER COLUMN file_id TYPE text;
