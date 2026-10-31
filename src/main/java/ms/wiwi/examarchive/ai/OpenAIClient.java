@@ -61,15 +61,15 @@ public class OpenAIClient {
             try (Response response = httpClient.newCall(request).execute()) {
                 String responseBody = response.body().string();
                 if (!response.isSuccessful()) {
-                    logger.error("Azure AI call failed with HTTP {}: {}", response.code(), responseBody);
-                    return GenerationResult.fail("Azure HTTP error " + response.code() + ": " + responseBody);
+                    logger.error("Open AI call failed with HTTP {}: {}", response.code(), responseBody);
+                    return GenerationResult.fail("HTTP error " + response.code() + ": " + responseBody);
                 }
 
                 JsonNode jsonNode = mapper.readTree(responseBody);
                 if (jsonNode.has("error")) {
                     String errorMsg = jsonNode.get("error").path("message").asString("Unknown error");
-                    logger.error("Azure payload returned error: {}", errorMsg);
-                    return GenerationResult.fail("Azure error: " + errorMsg);
+                    logger.error("Open AI payload returned error: {}", errorMsg);
+                    return GenerationResult.fail("Error: " + errorMsg);
                 }
 
                 JsonNode choices = jsonNode.path("choices");
@@ -123,8 +123,8 @@ public class OpenAIClient {
     private String createGenerationPrompt(List<Exam> exams){
         ObjectNode root = mapper.createObjectNode();
         root.put("model", llmModel);
-        root.put("max_completion_tokens", 12000);
-        root.put("reasoning_effort", "high");
+        root.put("max_completion_tokens", 128000);
+        root.put("reasoning_effort", "medium");
         ArrayNode messages = root.putArray("messages");
         ObjectNode systemMessage = messages.addObject();
         systemMessage.put("role", "system");
