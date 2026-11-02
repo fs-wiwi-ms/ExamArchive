@@ -123,7 +123,6 @@ public class OpenAIClient {
     private String createGenerationPrompt(List<Exam> exams){
         ObjectNode root = mapper.createObjectNode();
         root.put("model", llmModel);
-        root.put("max_completion_tokens", 128000);
         root.put("reasoning_effort", "medium");
         ArrayNode messages = root.putArray("messages");
         ObjectNode systemMessage = messages.addObject();
@@ -191,7 +190,6 @@ public class OpenAIClient {
     private String createScanPayload(List<byte[]> pages){
         ObjectNode root = mapper.createObjectNode();
         root.put("model", llmModel);
-        root.put("max_completion_tokens", 20000);
         root.put("reasoning_effort", "low");
         ArrayNode messages = root.putArray("messages");
         ObjectNode systemMessage = mapper.createObjectNode();
