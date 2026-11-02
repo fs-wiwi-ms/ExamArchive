@@ -29,6 +29,7 @@ public class AIService {
     private static final Pattern EXAM_HEADER_PATTERN = Pattern.compile("(?s)\\A===EXAM START===\\R(.*?)\\R===EXAM END===");
     private static final Pattern TASK_PLAN_PATTERN = Pattern.compile("(?s)===TASK START===\\R(.*?)\\R===TASK END===");
     private static final Pattern LEADING_OR_TRAILING_SEPARATOR = Pattern.compile("(?:\\A|\\z)\\s*(?:(?:---|\\*\\*\\*|___)\\s*)+");
+    private static final Pattern YAML_SEPARATOR = Pattern.compile("(?m)^[ \\t]*---[ \\t]*$");
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     private final Map<String, ExamAIJob> jobs = new ConcurrentHashMap<>();
     private final Repository repository;
@@ -213,11 +214,11 @@ public class AIService {
     }
 
     private String stitchExam(String header, String tasks) {
-        return stripOuterSeparators(header) + "\n\n---\n\n" + stripOuterSeparators(tasks);
+        return stripOuterSeparators(header) + "\n\n***\n\n" + stripOuterSeparators(tasks);
     }
 
     private String stripOuterSeparators(String content) {
-        String stripped = content.trim();
+        String stripped = YAML_SEPARATOR.matcher(content).replaceAll("***").trim();
         while (true) {
             String withoutLeadingSeparator = LEADING_OR_TRAILING_SEPARATOR.matcher(stripped).replaceFirst("").trim();
             if (withoutLeadingSeparator.equals(stripped)) {

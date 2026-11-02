@@ -28,7 +28,7 @@ Do not write anything outside these blocks. Do not use any delimiter anywhere el
 - **[Total points label]:** [Total] [points label] | **[Duration label]:** [Duration]
 - **[Permitted materials label]:** [Permitted materials]
 
----
+***
 [Additional general student instructions or grade thresholds, if applicable]
 ===EXAM END===
 
