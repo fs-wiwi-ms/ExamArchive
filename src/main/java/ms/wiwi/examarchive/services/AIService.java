@@ -20,9 +20,15 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class AIService {
     private static final Logger logger = LoggerFactory.getLogger(AIService.class);
+    private static final int MAX_CONCURRENT_GENERATIONS_PER_USER = 4;
+    private static final Pattern EXAM_HEADER_PATTERN = Pattern.compile("(?s)\\A===EXAM START===\\R(.*?)\\R===EXAM END===");
+    private static final Pattern TASK_PLAN_PATTERN = Pattern.compile("(?s)===TASK START===\\R(.*?)\\R===TASK END===");
+    private static final Pattern LEADING_OR_TRAILING_SEPARATOR = Pattern.compile("(?:\\A|\\z)\\s*(?:(?:---|\\*\\*\\*|___)\\s*)+");
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     private final Map<String, ExamAIJob> jobs = new ConcurrentHashMap<>();
     private final Repository repository;
@@ -90,16 +96,34 @@ public class AIService {
                     }
                     exams = repository.queryExamsFilterByDateAndProf(moduleid, untilYear, professors);
                 }
-                updateJobStatusAndNotify(job, ExamAIStatus.GENERATING, onUpdate);
-                OpenAIClient.GenerationResult result = openAIClient.generateExam(exams, apiKey);
+                updateJobStatusAndNotify(job, ExamAIStatus.PLANNING, onUpdate);
+                OpenAIClient.GenerationResult planResult = openAIClient.planExam(exams, apiKey);
+                if (!planResult.success()) {
+                    updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, planResult.error());
+                    return;
+                }
+                ExamPlan examPlan = parseExamPlan(planResult.latex());
+                if (examPlan == null) {
+                    updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, "The exam plan did not follow the required structure");
+                    return;
+                }
+                updateJobStatusAndNotify(job, ExamAIStatus.GENERATING_TASKS, onUpdate);
+                OpenAIClient.GenerationResult result = generateTasks(examPlan.taskPlans(), apiKey);
                 if (!result.success()) {
                     updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, result.error());
                     return;
                 }
+                result = new OpenAIClient.GenerationResult(
+                        true,
+                        stitchExam(examPlan.header(), result.latex()),
+                        planResult.inputToken() + result.inputToken(),
+                        planResult.outputToken() + result.outputToken(),
+                        null
+                );
                 updateJobStatusAndNotify(job, ExamAIStatus.COMPILING, onUpdate);
                 CompilationResult compilationResult = compileExam(result.latex(), job);
                 if (!compilationResult.success()) {
-                    updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, "Could not compile exam");
+                    updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, compilationResult.error());
                     return;
                 }
                 updateJobStatusAndNotify(job, ExamAIStatus.UPLOADING, onUpdate);
@@ -115,6 +139,92 @@ public class AIService {
             }
         });
         return id;
+    }
+
+    private ExamPlan parseExamPlan(String plan) {
+        Matcher headerMatcher = EXAM_HEADER_PATTERN.matcher(plan);
+        if (!headerMatcher.find() || headerMatcher.group(1).isBlank()) {
+            return null;
+        }
+        String remainingPlan = plan.substring(headerMatcher.end());
+        Matcher matcher = TASK_PLAN_PATTERN.matcher(remainingPlan);
+        List<String> taskPlans = new ArrayList<>();
+        int previousEnd = 0;
+        while (matcher.find()) {
+            if (!remainingPlan.substring(previousEnd, matcher.start()).isBlank() || matcher.group(1).isBlank()) {
+                return null;
+            }
+            taskPlans.add(matcher.group(1).trim());
+            previousEnd = matcher.end();
+        }
+        if (!remainingPlan.substring(previousEnd).isBlank() || taskPlans.isEmpty()) {
+            return null;
+        }
+        String header = stripOuterSeparators(headerMatcher.group(1));
+        return header.isBlank() ? null : new ExamPlan(header, taskPlans);
+    }
+
+    private OpenAIClient.GenerationResult generateTasks(List<String> taskPlans, String apiKey) throws InterruptedException {
+        Semaphore perUserLimit = new Semaphore(MAX_CONCURRENT_GENERATIONS_PER_USER);
+        List<Future<OpenAIClient.GenerationResult>> futures = new ArrayList<>();
+        for (int i = 0; i < taskPlans.size(); i++) {
+            String taskPlan = taskPlans.get(i);
+            int taskNumber = i + 1;
+            futures.add(executor.submit(() -> {
+                perUserLimit.acquire();
+                try {
+                    return openAIClient.generateTask(taskPlan, taskNumber, apiKey);
+                } finally {
+                    perUserLimit.release();
+                }
+            }));
+        }
+
+        StringBuilder quarto = new StringBuilder();
+        int inputTokens = 0;
+        int outputTokens = 0;
+        for (Future<OpenAIClient.GenerationResult> future : futures) {
+            try {
+                OpenAIClient.GenerationResult result = future.get();
+                if (!result.success()) {
+                    cancelTasks(futures);
+                    return OpenAIClient.GenerationResult.fail(result.error());
+                }
+                if (!quarto.isEmpty()) {
+                    quarto.append("\n\n");
+                }
+                quarto.append(stripOuterSeparators(result.latex()));
+                inputTokens += result.inputToken();
+                outputTokens += result.outputToken();
+            } catch (ExecutionException e) {
+                logger.error("Task generation failed", e.getCause());
+                cancelTasks(futures);
+                return OpenAIClient.GenerationResult.fail("Task generation exception: " + e.getCause().getMessage());
+            } catch (InterruptedException e) {
+                cancelTasks(futures);
+                throw e;
+            }
+        }
+        return new OpenAIClient.GenerationResult(true, quarto.toString(), inputTokens, outputTokens, null);
+    }
+
+    private void cancelTasks(List<Future<OpenAIClient.GenerationResult>> futures) {
+        futures.forEach(future -> future.cancel(true));
+    }
+
+    private String stitchExam(String header, String tasks) {
+        return stripOuterSeparators(header) + "\n\n---\n\n" + stripOuterSeparators(tasks);
+    }
+
+    private String stripOuterSeparators(String content) {
+        String stripped = content.trim();
+        while (true) {
+            String withoutLeadingSeparator = LEADING_OR_TRAILING_SEPARATOR.matcher(stripped).replaceFirst("").trim();
+            if (withoutLeadingSeparator.equals(stripped)) {
+                return stripped;
+            }
+            stripped = withoutLeadingSeparator;
+        }
     }
 
     private CompilationResult compileExam(String quarto, ExamAIJob job) {
@@ -140,11 +250,18 @@ public class AIService {
                 """.formatted(module.name() != null ? module.name() : "Klausur");
         try {
             byte[] bytes = quartoSandboxService.renderQmd(yaml + quarto);
-            return new CompilationResult(true, bytes);
+            return new CompilationResult(true, bytes, null);
         } catch (Exception e) {
             logger.error("Failed to compile exam. Latex: " + yaml + quarto, e);
-            return new CompilationResult(false, null);
+            return new CompilationResult(false, null, "Could not compile exam: " + shortenError(e.getMessage()));
         }
+    }
+
+    private String shortenError(String error) {
+        if (error == null || error.isBlank()) {
+            return "Quarto returned no error details";
+        }
+        return error.length() <= 1_000 ? error : error.substring(0, 1_000) + "...";
     }
 
     private boolean scanExams(List<Exam> examsWithoutScan, String apiKey) {
@@ -234,7 +351,9 @@ public class AIService {
         }
     }
 
-    private record CompilationResult(boolean success, byte[] pdfFile) {}
+    private record ExamPlan(String header, List<String> taskPlans) {}
+
+    private record CompilationResult(boolean success, byte[] pdfFile, String error) {}
 
     public ExamAIJob getJob(String id) {
         return jobs.get(id);

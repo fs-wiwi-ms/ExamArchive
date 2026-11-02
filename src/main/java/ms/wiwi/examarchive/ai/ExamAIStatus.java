@@ -10,9 +10,13 @@ public enum ExamAIStatus {
      */
     SCAN,
     /**
-     * Request is sent to the LLM and is processed
+     * The LLM creates a task plan from the reference exams
      */
-    GENERATING,
+    PLANNING,
+    /**
+     * The LLM generates the planned tasks
+     */
+    GENERATING_TASKS,
     /**
      * Compiles the LaTeX to PDF
      */
@@ -30,4 +34,3 @@ public enum ExamAIStatus {
      */
     FAILED
 }
-
