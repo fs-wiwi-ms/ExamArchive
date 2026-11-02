@@ -33,7 +33,7 @@ public class OpenAIClient {
 
     public OpenAIClient(String apiBaseUrl, String scanPrompt, String generatePrompt, int concurrentRequests, String llmModel) {
         this.apiBaseUrl = apiBaseUrl;
-        this.httpClient = new OkHttpClient.Builder().callTimeout(Duration.of(6, ChronoUnit.MINUTES)).readTimeout(Duration.of(5, ChronoUnit.MINUTES)).connectTimeout(Duration.of(15, ChronoUnit.SECONDS)).connectionPool(new ConnectionPool(10, 6, TimeUnit.MINUTES)).build();
+        this.httpClient = new OkHttpClient.Builder().callTimeout(Duration.of(10, ChronoUnit.MINUTES)).readTimeout(Duration.of(10, ChronoUnit.MINUTES)).connectTimeout(Duration.of(15, ChronoUnit.SECONDS)).connectionPool(new ConnectionPool(10, 6, TimeUnit.MINUTES)).build();
         this.scanPrompt = scanPrompt;
         this.generatePrompt = generatePrompt;
         this.semaphore = new Semaphore(concurrentRequests);
