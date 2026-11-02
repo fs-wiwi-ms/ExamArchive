@@ -90,10 +90,13 @@ public class ExamArchive {
 
     private OpenAIClient createOpenAiClient() {
         String scanPrompt;
+        String planPrompt;
         String genPrompt;
         try (InputStream scanPromptStream = AIService.class.getResourceAsStream("/prompts/scan.md");
+             InputStream planPromptStream = AIService.class.getResourceAsStream("/prompts/plan.md");
              InputStream genPromptStream = AIService.class.getResourceAsStream("/prompts/gen.md")) {
             scanPrompt = IOUtils.toString(Objects.requireNonNull(scanPromptStream), StandardCharsets.UTF_8);
+            planPrompt = IOUtils.toString(Objects.requireNonNull(planPromptStream), StandardCharsets.UTF_8);
             genPrompt = IOUtils.toString(Objects.requireNonNull(genPromptStream), StandardCharsets.UTF_8);
         } catch (Exception e) {
             logger.error("Failed to load AI prompts", e);
@@ -102,9 +105,11 @@ public class ExamArchive {
         return new OpenAIClient(
                 appConfig.aiEndpoint(),
                 scanPrompt,
+                planPrompt,
                 genPrompt,
                 10,
-                appConfig.aiModel()
+                appConfig.aiModel(),
+                appConfig.developmentMode()
         );
     }
 

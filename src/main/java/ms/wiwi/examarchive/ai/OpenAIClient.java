@@ -26,31 +26,43 @@ public class OpenAIClient {
     private final OkHttpClient httpClient;
     private final JsonMapper mapper = JsonMapper.builder().build();
     private final String scanPrompt;
+    private final String planPrompt;
     private final String generatePrompt;
     private final Semaphore semaphore;
     private final String llmModel;
+    private final boolean verbose;
     private static final Logger logger = LoggerFactory.getLogger(OpenAIClient.class);
 
-    public OpenAIClient(String apiBaseUrl, String scanPrompt, String generatePrompt, int concurrentRequests, String llmModel) {
+    public OpenAIClient(String apiBaseUrl, String scanPrompt, String planPrompt, String generatePrompt, int concurrentRequests, String llmModel, boolean verbose) {
         this.apiBaseUrl = apiBaseUrl;
         this.httpClient = new OkHttpClient.Builder().callTimeout(Duration.of(10, ChronoUnit.MINUTES)).readTimeout(Duration.of(10, ChronoUnit.MINUTES)).connectTimeout(Duration.of(15, ChronoUnit.SECONDS)).connectionPool(new ConnectionPool(10, 6, TimeUnit.MINUTES)).build();
         this.scanPrompt = scanPrompt;
+        this.planPrompt = planPrompt;
         this.generatePrompt = generatePrompt;
         this.semaphore = new Semaphore(concurrentRequests);
         this.llmModel = llmModel;
+        this.verbose = verbose;
     }
 
     /**
-     * Generate an exam based on the provided list of exams.
-     * @param exams The list of exams to generate from.
-     * @return The result of the exam generation.
-     * @throws Exception If an error occurs during the generation process.
+     * Plans an exam based on the provided reference exams.
+     * @param exams The reference exams.
+     * @return The generated task plan.
+     * @throws Exception If an error occurs during planning.
      */
-    public GenerationResult generateExam(List<Exam> exams, String apiKey) throws Exception {
+    public GenerationResult planExam(List<Exam> exams, String apiKey) throws Exception {
+        return generate(createPlanningPrompt(exams), apiKey, "exam planning");
+    }
+
+    public GenerationResult generateTask(String taskPlan, int taskNumber, String apiKey) throws Exception {
+        return generate(createTaskPrompt(taskPlan, taskNumber), apiKey, "task generation");
+    }
+
+    private GenerationResult generate(String prompt, String apiKey, String operation) throws Exception {
         semaphore.acquire();
         try {
-            String prompt = createGenerationPrompt(exams);
-            logger.info("Generating exam. Prompt length in chars: {}", prompt.length());
+            logger.info("{} prompt length in chars: {}", operation, prompt.length());
+            logRequest(operation, prompt);
             Request request = new Request.Builder()
                     .url(apiBaseUrl + "/v1/chat/completions")
                     .addHeader("Content-Type", "application/json")
@@ -60,6 +72,7 @@ public class OpenAIClient {
                     .build();
             try (Response response = httpClient.newCall(request).execute()) {
                 String responseBody = response.body().string();
+                logResponse(operation, responseBody);
                 if (!response.isSuccessful()) {
                     logger.error("Open AI call failed with HTTP {}: {}", response.code(), responseBody);
                     return GenerationResult.fail("HTTP error " + response.code() + ": " + responseBody);
@@ -104,23 +117,45 @@ public class OpenAIClient {
                 return new GenerationResult(true, quarto, promptTokens, completionTokens, null);
 
             } catch (Exception e) {
-                logger.error("Exception occurred during exam generation", e);
-                return GenerationResult.fail("Generation exception: " + e.getMessage());
+                    logger.error("Exception occurred during {}", operation, e);
+                    return GenerationResult.fail(operation + " exception: " + e.getMessage());
             }
         } catch (Exception e) {
-            logger.error("Error generating exam", e);
-            return GenerationResult.fail("Error generating exam: " + e.getMessage());
+            logger.error("Error during {}", operation, e);
+            return GenerationResult.fail("Error during " + operation + ": " + e.getMessage());
         } finally {
             semaphore.release();
         }
     }
 
     /**
-     * Generate a prompt for exam generation based on the provided list of exams
-     * @param exams The list of exams to generate from
+     * Creates a planning prompt from the provided reference exams.
+     * @param exams The reference exams
      * @return The generated prompt
      */
-    private String createGenerationPrompt(List<Exam> exams){
+    private String createPlanningPrompt(List<Exam> exams){
+        ObjectNode root = mapper.createObjectNode();
+        root.put("model", llmModel);
+        root.put("reasoning_effort", "medium");
+        ArrayNode messages = root.putArray("messages");
+        ObjectNode systemMessage = messages.addObject();
+        systemMessage.put("role", "system");
+        systemMessage.put("content", planPrompt);
+
+        ObjectNode userMessage = messages.addObject();
+        userMessage.put("role", "user");
+        StringBuilder userContent = new StringBuilder();
+        userContent.append("Plan a new, equivalent exam based on the reference exams provided below.\n\n");
+        for (int i = 0; i < exams.size(); i++) {
+            Exam exam = exams.get(i);
+            userContent.append("Exam #").append(i + 1).append(" [year=").append(exam.year()).append("] : ").append(exam.scan());
+            userContent.append("\n\n");
+        }
+        userMessage.put("content", userContent.toString());
+        return mapper.writeValueAsString(root);
+    }
+
+    private String createTaskPrompt(String taskPlan, int taskNumber) {
         ObjectNode root = mapper.createObjectNode();
         root.put("model", llmModel);
         root.put("reasoning_effort", "medium");
@@ -128,17 +163,9 @@ public class OpenAIClient {
         ObjectNode systemMessage = messages.addObject();
         systemMessage.put("role", "system");
         systemMessage.put("content", generatePrompt);
-
         ObjectNode userMessage = messages.addObject();
         userMessage.put("role", "user");
-        StringBuilder userContent = new StringBuilder();
-        userContent.append("Generate a new, equivalent exam based on the reference exams provided below.\n\n");
-        for (int i = 0; i < exams.size(); i++) {
-            Exam exam = exams.get(i);
-            userContent.append("Exam #").append(i + 1).append(" [year=").append(exam.year()).append("] : ").append(exam.scan());
-            userContent.append("\n\n");
-        }
-        userMessage.put("content", userContent.toString());
+        userMessage.put("content", "This is task number " + taskNumber + ". Use that number in the task heading and generate and verify exactly this planned task.\n\n" + taskPlan);
         return mapper.writeValueAsString(root);
     }
 
@@ -149,6 +176,7 @@ public class OpenAIClient {
      */
     public String scanExamWithAI(List<byte[]> examPictures, String apiKey) throws Exception{
         String payload = createScanPayload(examPictures);
+        logRequest("exam scan", payload);
         Request request = new Request.Builder()
                 .url(apiBaseUrl + "/v1/chat/completions")
                 .addHeader("Content-Type", "application/json")
@@ -161,6 +189,7 @@ public class OpenAIClient {
             semaphore.acquire();
             try (Response response = httpClient.newCall(request).execute()) {
                 String responseBody = response.body().string();
+                logResponse("exam scan", responseBody);
                 if(!response.isSuccessful()) {
                     logger.error("Could not scan exam " + responseBody);
                     throw new IOException("Unexpected code " + responseBody);
@@ -172,7 +201,6 @@ public class OpenAIClient {
                     throw new RuntimeException("Invalid Finish Reason: " + finishReason);
                 }
                 markdown = responseRoot.path("choices").path(0).path("message").path("content").asString();
-                logger.info("Exam scan: " + responseBody);
             } catch (RuntimeException e) {
                 throw new RuntimeException(e);
             }
@@ -220,15 +248,17 @@ public class OpenAIClient {
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Authorization", "Bearer " + apiKey)
                 .build();
+        logRequest("API key test", "GET " + apiBaseUrl + "/key/info");
         try (Response response = httpClient.newCall(request).execute()){
+            String responseBody = response.body().string();
+            logResponse("API key test", responseBody);
             if(!response.isSuccessful()){
                 return false;
             }
-            String json = response.body().string();
-            if(json.isEmpty()){
+            if(responseBody.isEmpty()){
                 return false;
             }
-            JsonNode root = mapper.readTree(json);
+            JsonNode root = mapper.readTree(responseBody);
             JsonNode infoNode = root.get("info");
             if(infoNode == null){
                 return false;
@@ -237,6 +267,18 @@ public class OpenAIClient {
             return status != null && status.asString().equals("active");
         } catch (IOException e) {
             return false;
+        }
+    }
+
+    private void logRequest(String operation, String payload) {
+        if (verbose) {
+            logger.info("OpenAI {} request: {}", operation, payload);
+        }
+    }
+
+    private void logResponse(String operation, String response) {
+        if (verbose) {
+            logger.info("OpenAI {} response: {}", operation, response);
         }
     }
 

@@ -15,7 +15,9 @@
         progress = 10;
     } else if (job.status() == ExamAIStatus.SCAN) {
         progress = 30;
-    } else if (job.status() == ExamAIStatus.GENERATING) {
+    } else if (job.status() == ExamAIStatus.PLANNING) {
+        progress = 50;
+    } else if (job.status() == ExamAIStatus.GENERATING_TASKS) {
         progress = 60;
     } else if (job.status() == ExamAIStatus.COMPILING) {
         progress = 85;
@@ -72,17 +74,23 @@
                 <li style="${currentOrdinal > 2 ? "color: var(--pico-muted-color);" : (currentOrdinal == 2 ? "font-weight: bold; color: var(--pico-primary);" : "color: var(--pico-muted-color); opacity: 0.5;")}">
                     @if(currentOrdinal > 2) ✔ @elseif(currentOrdinal == 2)
                         <span aria-busy="true" style="margin-right: 0.5rem;"></span> @endif
-                    KI generiert die neue Probeklausur
+                    KI plant die neue Probeklausur
                 </li>
 
                 <li style="${currentOrdinal > 3 ? "color: var(--pico-muted-color);" : (currentOrdinal == 3 ? "font-weight: bold; color: var(--pico-primary);" : "color: var(--pico-muted-color); opacity: 0.5;")}">
                     @if(currentOrdinal > 3) ✔ @elseif(currentOrdinal == 3)
                         <span aria-busy="true" style="margin-right: 0.5rem;"></span> @endif
-                    Klausur wird gerendert
+                    KI generiert und prüft die Aufgaben
                 </li>
 
                 <li style="${currentOrdinal > 4 ? "color: var(--pico-muted-color);" : (currentOrdinal == 4 ? "font-weight: bold; color: var(--pico-primary);" : "color: var(--pico-muted-color); opacity: 0.5;")}">
                     @if(currentOrdinal > 4) ✔ @elseif(currentOrdinal == 4)
+                        <span aria-busy="true" style="margin-right: 0.5rem;"></span> @endif
+                    Klausur wird gerendert
+                </li>
+
+                <li style="${currentOrdinal > 5 ? "color: var(--pico-muted-color);" : (currentOrdinal == 5 ? "font-weight: bold; color: var(--pico-primary);" : "color: var(--pico-muted-color); opacity: 0.5;")}">
+                    @if(currentOrdinal > 5) ✔ @elseif(currentOrdinal == 5)
                         <span aria-busy="true" style="margin-right: 0.5rem;"></span> @endif
                     Dokument wird sicher gespeichert
                 </li>
