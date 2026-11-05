@@ -872,9 +872,11 @@ public class Repository {
                    e.fileid, e.uploaderid, e.status, e.professorid, e.scan,
                    p.firstname, p.lastname
             FROM (
-                SELECT examid, COUNT(examid) as dl_count
-                FROM downloads
-                GROUP BY examid
+                SELECT d.examid, COUNT(d.examid) as dl_count
+                FROM downloads d
+                JOIN exams e ON d.examid = e.examid
+                WHERE e.status = ?
+                GROUP BY d.examid
                 ORDER BY dl_count DESC
                 LIMIT ?
             ) d
@@ -886,7 +888,8 @@ public class Repository {
         try (Connection connection = dbManager.getConnection();
              PreparedStatement statement = connection.prepareStatement(query)) {
 
-            statement.setInt(1, limit);
+            statement.setString(1, ExamStatus.ACCEPTED.name());
+            statement.setInt(2, limit);
             try (ResultSet rs = statement.executeQuery()) {
                 while (rs.next()) {
                     Exam exam = new Exam(
@@ -985,7 +988,7 @@ public class Repository {
 
 
     /**
-     * Gets old accounts, older than three years
+     * Gets old accounts, older than two years
      */
     public List<User> getAccountsToDelete() {
         try(Connection connection = dbManager.getConnection();
