@@ -42,6 +42,27 @@ dependencies {
     //WEBJARS
     implementation("org.webjars.npm:htmx.org:2.0.7")
     implementation("org.webjars.npm:htmx-ext-sse:2.2.4")
+
+    //TEST
+    testImplementation(platform("org.junit:junit-bom:6.1.3"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation(platform("org.testcontainers:testcontainers-bom:1.21.4"))
+    testImplementation("org.testcontainers:testcontainers")
+    testImplementation("org.testcontainers:postgresql")
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.testcontainers:mockserver")
+    testImplementation("org.mock-server:mockserver-client-java:9.2.0")
+    testImplementation("com.adobe.testing:s3mock-testcontainers:5.2.3")
+    testImplementation("com.microsoft.playwright:playwright:1.64.0")
+}
+
+tasks.test {
+    useJUnitPlatform()
+    testLogging {
+        events("passed", "skipped", "failed")
+        showStandardStreams = true
+    }
 }
 
 jte {
