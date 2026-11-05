@@ -61,7 +61,7 @@ public class OpenAIIntegrationTest {
                 .withBody(json("""
                         {
                           "info": {
-                            "status": "UUUtive"
+                            "status": "active"
                           }
                         }
                         """)));

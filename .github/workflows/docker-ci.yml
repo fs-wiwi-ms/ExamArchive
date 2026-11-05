@@ -1,18 +1,61 @@
-name: CI Pipeline
+name: CI
+run-name: >-
+  CI — ${{ github.event_name == 'pull_request' && github.event.pull_request.title || github.ref_name }}
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      force_push:
+        description: Push the Docker image even if tests fail
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  checks: write
+
 jobs:
+  test:
+    name: Run JUnit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run tests
+        run: ./gradlew test --no-daemon
+
+      - name: Publish JUnit test report
+        if: success() || failure()
+        uses: mikepenz/action-junit-report@v6
+        with:
+          report_paths: '**/build/test-results/test/TEST-*.xml'
+
   build-and-push:
     name: Build and Push Docker Image
+    needs: test
+    if: >-
+      always() && (needs.test.result == 'success' ||
+      (github.event_name == 'workflow_dispatch' && inputs.force_push))
     runs-on: ubuntu-latest
 
     permissions:
@@ -21,7 +64,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -43,13 +86,14 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,enable={{is_default_branch}}
             type=ref,event=pr
+            type=raw,value=manual-${{ github.sha }},enable=${{ github.event_name == 'workflow_dispatch' }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
-          push: ${{ github.event_name == 'push' || contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) }}
+          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: ${{ (github.event_name == 'push' || contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)) && 'type=gha,mode=max' || '' }}
+          cache-from: type=gha,scope=examarchive
+          cache-to: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)) && 'type=gha,mode=max,scope=examarchive' || '' }}
