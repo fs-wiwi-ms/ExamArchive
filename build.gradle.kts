@@ -19,6 +19,7 @@ dependencies {
     implementation("io.javalin:javalin:7.2.3")
     implementation("io.javalin:javalin-rendering-jte:7.2.3")
     implementation("gg.jte:jte:3.2.4")
+    implementation("com.squareup.okhttp3:okhttp:5.5.0")
     //LOG
     implementation("org.slf4j:slf4j-simple:2.0.18")
     //DB
@@ -31,8 +32,37 @@ dependencies {
     //FILES
     implementation("org.apache.pdfbox:pdfbox:3.0.8")
     implementation("io.minio:minio:9.0.3")
+    implementation("tools.jackson.core:jackson-databind:3.2.2")
     //MAIL
     implementation("com.sun.mail:jakarta.mail:2.0.2")
+    //DOCKER
+    implementation("com.github.docker-java:docker-java-core:3.7.0")
+    implementation("com.github.docker-java:docker-java-transport-httpclient5:3.7.0")
+
+    //WEBJARS
+    implementation("org.webjars.npm:htmx.org:2.0.7")
+    implementation("org.webjars.npm:htmx-ext-sse:2.2.4")
+
+    //TEST
+    testImplementation(platform("org.junit:junit-bom:6.1.3"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation(platform("org.testcontainers:testcontainers-bom:1.21.4"))
+    testImplementation("org.testcontainers:testcontainers")
+    testImplementation("org.testcontainers:postgresql")
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.testcontainers:mockserver")
+    testImplementation("org.mock-server:mockserver-client-java:9.2.0")
+    testImplementation("com.adobe.testing:s3mock-testcontainers:5.2.3")
+    testImplementation("com.microsoft.playwright:playwright:1.64.0")
+}
+
+tasks.test {
+    useJUnitPlatform()
+    testLogging {
+        events("passed", "skipped", "failed")
+        showStandardStreams = true
+    }
 }
 
 jte {

@@ -71,7 +71,7 @@ public class AdminExamsController {
             return;
         }
         logger.info("Accepting Exam: " + body + " (" + exam.name() + ")");
-        Exam newExam = new Exam(exam.name(), exam.examID(), exam.moduleID(), exam.year(), exam.semester(), exam.uploadDate(), exam.fileID(), exam.uploaderID(), ExamStatus.ACCEPTED, exam.professorID());
+        Exam newExam = new Exam(exam.name(), exam.examID(), exam.moduleID(), exam.year(), exam.semester(), exam.uploadDate(), exam.fileID(), exam.uploaderID(), ExamStatus.ACCEPTED, exam.professorID(), exam.scan());
         repository.updateExam(newExam);
         User user = repository.getUser(exam.uploaderID());
         if (user != null && user.role() == Role.USER) {
@@ -104,7 +104,7 @@ public class AdminExamsController {
             ctx.result("Klausur konnte nicht gefunden werden");
             return;
         }
-        s3Service.deleteFile(exam.fileID());
+        s3Service.deleteFile(exam.fileID(), S3Service.Bucket.EXAMS);
         repository.deleteExam(body);
         handleGet(ctx);
     }
@@ -132,7 +132,7 @@ public class AdminExamsController {
         }
         Professor professor = repository.getOrCreateProfessor(firstname, lastname);
         if(!moduleID.equals(exam.moduleID()) || year != exam.year() || semester != exam.semester() || !professor.professorID().equals(exam.professorID())){
-            Exam newExam = new Exam(exam.name(), exam.examID(), moduleID, year, semester, exam.uploadDate(), exam.fileID(), exam.uploaderID(), ExamStatus.ACCEPTED, professor.professorID());
+            Exam newExam = new Exam(exam.name(), exam.examID(), moduleID, year, semester, exam.uploadDate(), exam.fileID(), exam.uploaderID(), ExamStatus.ACCEPTED, professor.professorID(), exam.scan());
             repository.updateExam(newExam);
             logger.info("Updated Exam: {} ({})", exam.name(), exam.examID());
         }
@@ -150,7 +150,7 @@ public class AdminExamsController {
             ctx.status(404);
             return;
         }
-        s3Service.deleteFile(exam.fileID());
+        s3Service.deleteFile(exam.fileID(), S3Service.Bucket.EXAMS);
         repository.deleteExam(examID);
         handleGet(ctx);
     }

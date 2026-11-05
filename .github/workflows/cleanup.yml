@@ -19,12 +19,12 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: |
           VERSION_ID=$(gh api -H "Accept: application/vnd.github+json" \
-            /orgs/$ORG/packages/container/$PKG/versions \
+            "/orgs/${ORG}/packages/container/${PKG}/versions" \
             --jq ".[] | select(.metadata.container.tags[] | contains(\"pr-$PR\")) | .id")
           if [ -n "$VERSION_ID" ]; then
             echo "Deleting package version ID: $VERSION_ID"
             gh api --method DELETE -H "Accept: application/vnd.github+json" \
-              /orgs/$ORG/packages/container/$PKG/versions/$VERSION_ID
+            "/orgs/${ORG}/packages/container/${PKG}/versions/${VERSION_ID}"
           else
             echo "No image found for pr-$PR. It may have already been deleted."
           fi
