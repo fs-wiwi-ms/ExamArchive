@@ -131,6 +131,10 @@ public class ExamAIController {
             client.close();
             return;
         }
+        if(!currentJob.user().id().equals(client.ctx().sessionAttribute("user"))){
+            client.close();
+            return;
+        }
         client.keepAlive();
         sseClients.put(jobID, client);
         client.onClose(() -> sseClients.remove(jobID));
