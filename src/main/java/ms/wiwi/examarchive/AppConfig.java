@@ -27,7 +27,9 @@ public record AppConfig(
         String dockerSock,
         String dockerRuntime,
         String aiEndpoint,
-        String aiModel,
+        String aiModelScan,
+        String aiModelPlan,
+        String aiModelGen,
         String encryptionKey) {
     public static AppConfig fromEnv() {
         return new AppConfig(
@@ -57,7 +59,9 @@ public record AppConfig(
                 getEnv("EXAMARCHIVE_DOCKER_SOCK", "/var/run/docker.sock"),
                 getEnv("EXAMARCHIVE_DOCKER_RUNTIME", "runc"),
                 getEnv("EXAMARCHIVE_AI_ENDPOINT", ""),
-                getEnv("EXAMARCHIVE_AI_MODEL", "Qwen3.8-27B"),
+                getEnv("EXAMARCHIVE_AI_MODEL_SCAN", "Qwen3.8-27B"),
+                getEnv("EXAMARCHIVE_AI_MODEL_PLAN", "Qwen3.8-27B"),
+                getEnv("EXAMARCHIVE_AI_MODEL_GEN", "DeepSeek-V4-Flash"),
                 getEnv("EXAMARCHIVE_ENCRYPTION_KEY", ""));
     }
 

@@ -108,7 +108,9 @@ public class ExamArchive {
                 planPrompt,
                 genPrompt,
                 10,
-                appConfig.aiModel(),
+                appConfig.aiModelPlan(),
+                appConfig.aiModelScan(),
+                appConfig.aiModelGen(),
                 appConfig.developmentMode()
         );
     }
