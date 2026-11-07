@@ -29,18 +29,22 @@ public class OpenAIClient {
     private final String planPrompt;
     private final String generatePrompt;
     private final Semaphore semaphore;
-    private final String llmModel;
+    private final String llmModelPlan;
+    private final String llmModelScan;
+    private final String llmModelGen;
     private final boolean verbose;
     private static final Logger logger = LoggerFactory.getLogger(OpenAIClient.class);
 
-    public OpenAIClient(String apiBaseUrl, String scanPrompt, String planPrompt, String generatePrompt, int concurrentRequests, String llmModel, boolean verbose) {
+    public OpenAIClient(String apiBaseUrl, String scanPrompt, String planPrompt, String generatePrompt, int concurrentRequests, String llmModelPlan, String llmModelScan, String llmModelGen, boolean verbose) {
         this.apiBaseUrl = apiBaseUrl;
         this.httpClient = new OkHttpClient.Builder().callTimeout(Duration.of(10, ChronoUnit.MINUTES)).readTimeout(Duration.of(10, ChronoUnit.MINUTES)).connectTimeout(Duration.of(15, ChronoUnit.SECONDS)).connectionPool(new ConnectionPool(10, 6, TimeUnit.MINUTES)).build();
         this.scanPrompt = scanPrompt;
         this.planPrompt = planPrompt;
         this.generatePrompt = generatePrompt;
         this.semaphore = new Semaphore(concurrentRequests);
-        this.llmModel = llmModel;
+        this.llmModelPlan = llmModelPlan;
+        this.llmModelScan = llmModelScan;
+        this.llmModelGen = llmModelGen;
         this.verbose = verbose;
     }
 
@@ -135,7 +139,7 @@ public class OpenAIClient {
      */
     private String createPlanningPrompt(List<Exam> exams){
         ObjectNode root = mapper.createObjectNode();
-        root.put("model", llmModel);
+        root.put("model", llmModelPlan);
         root.put("reasoning_effort", "medium");
         ArrayNode messages = root.putArray("messages");
         ObjectNode systemMessage = messages.addObject();
@@ -157,7 +161,7 @@ public class OpenAIClient {
 
     private String createTaskPrompt(String taskPlan, int taskNumber) {
         ObjectNode root = mapper.createObjectNode();
-        root.put("model", llmModel);
+        root.put("model", llmModelGen);
         root.put("reasoning_effort", "medium");
         ArrayNode messages = root.putArray("messages");
         ObjectNode systemMessage = messages.addObject();
@@ -209,7 +213,7 @@ public class OpenAIClient {
         } finally {
             semaphore.release();
         }
-        if(markdown == null) {
+        if(markdown == null || markdown.isBlank()) {
             throw new IllegalStateException("No markdown found for exam");
         }
         return markdown;
@@ -217,7 +221,7 @@ public class OpenAIClient {
 
     private String createScanPayload(List<byte[]> pages){
         ObjectNode root = mapper.createObjectNode();
-        root.put("model", llmModel);
+        root.put("model", llmModelScan);
         root.put("reasoning_effort", "low");
         ArrayNode messages = root.putArray("messages");
         ObjectNode systemMessage = mapper.createObjectNode();
