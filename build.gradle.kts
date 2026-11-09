@@ -55,6 +55,8 @@ dependencies {
     testImplementation("org.mock-server:mockserver-client-java:9.2.0")
     testImplementation("com.adobe.testing:s3mock-testcontainers:5.2.3")
     testImplementation("com.microsoft.playwright:playwright:1.64.0")
+    testImplementation("org.mockito:mockito-core:5.24.0")
+    testImplementation("org.mockito:mockito-junit-jupiter:5.24.0")
 }
 
 tasks.test {
