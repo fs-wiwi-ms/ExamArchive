@@ -7,6 +7,7 @@ import ms.wiwi.examarchive.model.*;
 import ms.wiwi.examarchive.model.Module;
 import ms.wiwi.examarchive.services.EmailService;
 import ms.wiwi.examarchive.services.JteLocalizer;
+import ms.wiwi.examarchive.services.PdfService;
 import ms.wiwi.examarchive.services.S3Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,10 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.Year;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.regex.Pattern;
 
 public class AddExamController {
@@ -30,11 +28,13 @@ public class AddExamController {
     private final Repository repository;
     private final S3Service s3Service;
     private final EmailService emailService;
+    private final PdfService pdfService;
 
-    public AddExamController(Repository repository, S3Service s3Service, EmailService emailService) {
+    public AddExamController(Repository repository, S3Service s3Service, EmailService emailService, PdfService pdfService) {
         this.repository = repository;
         this.emailService = emailService;
         this.s3Service = s3Service;
+        this.pdfService = pdfService;
     }
 
     public void handleGet(Context ctx) {
@@ -100,14 +100,32 @@ public class AddExamController {
         User user = ctx.sessionAttribute("user");
         String examId = UUID.randomUUID().toString();
         String fileID = UUID.randomUUID().toString();
+        File pdf = null;
+        File sanitizedPDF = null;
         try (InputStream content = file.content()) {
-            File pdf = Files.createTempFile(examId, ".pdf").toFile();
+            pdf = Files.createTempFile(examId, ".pdf").toFile();
+            sanitizedPDF = Files.createTempFile(examId + "-sanitized", ".pdf").toFile();
             Files.copy(content, pdf.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            s3Service.uploadPDF(pdf, fileID);
-            pdf.delete();
+            boolean success = pdfService.sanitizePdf(pdf, sanitizedPDF);
+            if(!success){
+                try {
+                    Files.delete(pdf.toPath());
+                    Files.delete(sanitizedPDF.toPath());
+                } catch (Exception e) {
+                    logger.error("Failed to delete temporary files", e);
+                }
+                errors.add("Failed to upload PDF");
+                List<Module> modules = repository.getAllModules();
+                ctx.render("addExamForm.jte", Map.of(
+                        "modules", modules,
+                        "errors", errors
+                ));
+                return;
+            }
+            s3Service.uploadPDF(sanitizedPDF, fileID, S3Service.Bucket.EXAMS);
             Professor professor = repository.getOrCreateProfessor(firstName, lastName);
             String examName = module.name() + "-" + semesterStr + "-" + yearStr;
-            Exam exam = new Exam(examName, examId, module.moduleID(), year, semester, Instant.now(), fileID, user.id(), ExamStatus.PENDING, professor.professorID());
+            Exam exam = new Exam(examName, examId, module.moduleID(), year, semester, Instant.now(), fileID, user.id(), ExamStatus.PENDING, professor.professorID(), null);
             repository.addExam(exam);
             List<String> adminEmails = repository.getAdminEmails();
             if(!adminEmails.isEmpty() && user.role() != Role.ADMIN){
@@ -137,8 +155,15 @@ public class AddExamController {
             }
         } catch (Exception e) {
             logger.error("Error uploading file: ", e);
-            s3Service.deleteFile(fileID);
+            s3Service.deleteFile(fileID, S3Service.Bucket.EXAMS);
             errors.add(JteLocalizer.lookup("addExam.error.fileUploadFailed"));
+        } finally {
+            try{
+                Files.deleteIfExists(Objects.requireNonNull(pdf).toPath());
+                Files.deleteIfExists(Objects.requireNonNull(sanitizedPDF).toPath());
+            } catch (Exception e) {
+                logger.error("Failed to delete temporary files", e);
+            }
         }
         if (!errors.isEmpty()) {
             List<Module> modules = repository.getAllModules();
