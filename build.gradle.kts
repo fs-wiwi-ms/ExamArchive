@@ -65,6 +65,13 @@ tasks.test {
         events("passed", "skipped", "failed")
         showStandardStreams = true
     }
+
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
+    val cores = Runtime.getRuntime().availableProcessors()
+    maxParallelForks = (cores / 2).coerceAtLeast(1)
 }
 
 jte {
