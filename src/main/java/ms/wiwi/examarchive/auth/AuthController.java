@@ -97,16 +97,8 @@ public class AuthController {
             String email = claims.getStringClaim("email");
             List<String> affiliation = claims.getStringListClaim("affiliation");
 
-            boolean isStudent = affiliation != null && checkAffiliation(affiliation, userAffiliation);
-            boolean isAdmin = affiliation != null && checkAffiliation(affiliation, adminAffiliation);
-
-            Role role = Role.BLOCKED;
-            if (isAdmin) {
-                role = Role.ADMIN;
-            } else if (isStudent) {
-                role = Role.USER;
-            }
-            if (email != null && email.endsWith(adminEmailDomain) && role != Role.ADMIN) {
+            Role role = decideRole(affiliation, userAffiliation, adminAffiliation);
+            if (requiresUniversityAccount(email, adminEmailDomain, role)) {
                 ctx.status(403).result("Access denied. Please login with your university account.");
                 logger.info("Council member {} tried to log in without admin rights", email);
                 return;
@@ -136,18 +128,31 @@ public class AuthController {
     }
 
     /**
-     * Checks if a user has a certain affiliation.
-     * @param affiliation Affiliation list
-     * @param allowedAffiliation Affiliation to check for
-     * @return True if the user has the affiliation, false otherwise
+     * Decides the role a user gets based on their Keycloak affiliation claims.
+     * Admins win over students; if neither affiliation is present the user is blocked.
+     * @param affiliation List of affiliation claims, may be null
+     * @param userAffiliation Affiliation value that grants regular USER access
+     * @param adminAffiliation Affiliation value that grants ADMIN access
+     * @return The role to assign
      */
-    private boolean checkAffiliation(List<String> affiliation, String allowedAffiliation){
-        for(String a : affiliation){
-            if(a.equals(allowedAffiliation)){
-                return true;
-            }
+    static Role decideRole(List<String> affiliation, String userAffiliation, String adminAffiliation){
+        boolean isStudent = affiliation != null && affiliation.contains(userAffiliation);
+        boolean isAdmin = affiliation != null && affiliation.contains(adminAffiliation);
+        if (isAdmin) {
+            return Role.ADMIN;
         }
-        return false;
+        if (isStudent) {
+            return Role.USER;
+        }
+        return Role.BLOCKED;
+    }
+
+    /**
+     * True if a user with the given email domain must log in with their university
+     * account, i.e. they are a council member but do not hold admin rights.
+     */
+    static boolean requiresUniversityAccount(String email, String adminEmailDomain, Role role){
+        return email != null && email.endsWith(adminEmailDomain) && role != Role.ADMIN;
     }
 
     /**
