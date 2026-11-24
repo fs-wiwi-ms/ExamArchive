@@ -131,7 +131,8 @@ public class ExamAIController {
             client.close();
             return;
         }
-        if(!currentJob.user().id().equals(client.ctx().sessionAttribute("user"))){
+        User sessionUser = client.ctx().sessionAttribute("user");
+        if (sessionUser == null || !currentJob.user().id().equals(sessionUser.id())) {
             client.close();
             return;
         }

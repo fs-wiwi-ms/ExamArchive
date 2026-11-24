@@ -81,6 +81,9 @@
                     @if(currentOrdinal > 3) ✔ @elseif(currentOrdinal == 3)
                         <span aria-busy="true" style="margin-right: 0.5rem;"></span> @endif
                     KI generiert und prüft die Aufgaben
+                    @if(currentOrdinal == 3)
+                        <small style="display: block; margin-top: 0.25rem;">Aufgabe ${job.getDoneTaskCount()} von ${job.getTaskCount()}</small>
+                    @endif
                 </li>
 
                 <li style="${currentOrdinal > 4 ? "color: var(--pico-muted-color);" : (currentOrdinal == 4 ? "font-weight: bold; color: var(--pico-primary);" : "color: var(--pico-muted-color); opacity: 0.5;")}">

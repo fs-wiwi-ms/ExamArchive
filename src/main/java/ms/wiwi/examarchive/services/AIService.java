@@ -109,7 +109,7 @@ public class AIService {
                     return;
                 }
                 updateJobStatusAndNotify(job, ExamAIStatus.GENERATING_TASKS, onUpdate);
-                OpenAIClient.GenerationResult result = generateTasks(examPlan.taskPlans(), apiKey);
+                OpenAIClient.GenerationResult result = generateTasks(examPlan.taskPlans(), apiKey, job, onUpdate);
                 if (!result.success()) {
                     updateJobStatusAndNotify(job, ExamAIStatus.FAILED, onUpdate, result.error());
                     return;
@@ -165,9 +165,11 @@ public class AIService {
         return header.isBlank() ? null : new ExamPlan(header, taskPlans);
     }
 
-    private OpenAIClient.GenerationResult generateTasks(List<String> taskPlans, String apiKey) throws InterruptedException {
+    private OpenAIClient.GenerationResult generateTasks(List<String> taskPlans, String apiKey, ExamAIJob job, Consumer<ExamAIJob> onUpdate) throws InterruptedException {
         Semaphore perUserLimit = new Semaphore(MAX_CONCURRENT_GENERATIONS_PER_USER);
         List<Future<OpenAIClient.GenerationResult>> futures = new ArrayList<>();
+        job.setTaskCount(taskPlans.size());
+        updateJobStatusAndNotify(job, ExamAIStatus.GENERATING_TASKS, onUpdate);
         for (int i = 0; i < taskPlans.size(); i++) {
             String taskPlan = taskPlans.get(i);
             int taskNumber = i + 1;
@@ -176,6 +178,8 @@ public class AIService {
                 try {
                     return openAIClient.generateTask(taskPlan, taskNumber, apiKey);
                 } finally {
+                    job.increateDoneTaskCount();
+                    updateJobStatusAndNotify(job, ExamAIStatus.GENERATING_TASKS, onUpdate);
                     perUserLimit.release();
                 }
             }));
