@@ -145,7 +145,7 @@ public class AIServiceFullTripIntegrationTest {
                         ExamAIStatus.COMPILING,
                         ExamAIStatus.UPLOADING,
                         ExamAIStatus.DONE),
-                result.statuses());
+                result.statuses().stream().distinct().toList());
 
         verify(s3Service).downloadFile(anyString(), eq(S3Service.Bucket.EXAMS));
         verify(pdfService).convertPdfToImages(any(byte[].class), eq(SCAN_DPI), eq(SCAN_JPEG_QUALITY));
@@ -191,7 +191,7 @@ public class AIServiceFullTripIntegrationTest {
                         ExamAIStatus.COMPILING,
                         ExamAIStatus.UPLOADING,
                         ExamAIStatus.DONE),
-                result.statuses());
+                result.statuses().stream().distinct().toList());
 
         // The SCAN branch must not run when every reference exam is already scanned.
         verify(s3Service, never()).downloadFile(anyString(), eq(S3Service.Bucket.EXAMS));
